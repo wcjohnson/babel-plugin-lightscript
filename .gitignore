@@ -3,3 +3,4 @@ lib
 /index.js
 /stdlib.js
 npm-debug.log
+lerna-debug.log

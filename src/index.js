@@ -1,4 +1,4 @@
-import { parse } from "babylon-lightscript";
+import { parse } from "@oigroup/babylon-lightscript";
 import { defaultImports, lightscriptImports, lodashImports } from "./stdlib";
 
 export default function (babel) {
