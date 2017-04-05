@@ -1,6 +1,6 @@
 # @oigroup/babel-plugin-lightscript
 
-> NB: This is a fork of babel-plugin-lightscript which implements language changes that are not necessarily endorsed by upstream. Generally speaking, our intent is to closely follow the upstream language -- however, there may be notable deviations.
+> NB: This is a fork of babel-plugin-lightscript which implements language changes that are not necessarily endorsed by upstream. Generally speaking, our intent is to closely follow the upstream language -- however, there may be notable deviations which are documented below.
 
 Compiles [LightScript](http://lightscript.org) to JavaScript when used with [Babel](http://babeljs.io).
 
