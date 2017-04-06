@@ -22,6 +22,7 @@
     "@oigroup/babylon-lightscript": "^0.4.6"
   },
   "files": [
+    "bin/",
     "stdlib.js",
     "index.js"
   ],
