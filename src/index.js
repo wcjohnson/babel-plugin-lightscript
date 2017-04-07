@@ -552,6 +552,11 @@ export default function (babel) {
     if (t.isBlockStatement(path.node[key])) {
       path.get(key).canSwapBetweenExpressionAndStatement = () => true;
       path.get(key).replaceExpressionWithStatements(path.node[key].body);
+      return path.node[key];
+    } else if (t.isExpressionStatement(path.node[key])) {
+      return path.node[key].expression;
+    } else {
+      return path.node[key];
     }
   }
 
@@ -838,11 +843,11 @@ export default function (babel) {
         validate: assertNodeType("Expression")
       },
       consequent: {
-        validate: assertNodeType("Expression", "BlockStatement")
+        validate: assertNodeType("Expression", "BlockStatement", "ExpressionStatement")
       },
       alternate: {
         optional: true,
-        validate: assertNodeType("Expression", "BlockStatement")
+        validate: assertNodeType("Expression", "BlockStatement", "ExpressionStatement")
       }
     }
   });
@@ -1128,15 +1133,16 @@ export default function (babel) {
       },
 
       IfExpression(path) {
-        blockToExpression(path, "consequent");
+        const consequent = blockToExpression(path, "consequent");
 
+        let alternate;
         if (path.node.alternate) {
-          blockToExpression(path, "alternate");
+          alternate = blockToExpression(path, "alternate");
         } else {
-          path.get("alternate").replaceWith(t.nullLiteral());
+          alternate = t.nullLiteral();
         }
 
-        path.replaceWith(t.conditionalExpression(path.node.test, path.node.consequent, path.node.alternate));
+        path.replaceWith(t.conditionalExpression(path.node.test, consequent, alternate));
       },
 
       AssignmentExpression(path) {
