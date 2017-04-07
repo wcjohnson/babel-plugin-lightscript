@@ -10,7 +10,8 @@
     "test": "mocha test",
     "test:debug": "node --inspect --debug-brk mocha test",
     "build": "babel src --out-dir .",
-    "prepublish": "npm run build && npm test"
+    "prepublish": "npm run build && npm test",
+    "diag": "./bin/lscdiag.js"
   },
   "bin": {
     "lscdiag": "./bin/lscdiag.js"
@@ -22,7 +23,7 @@
     "@oigroup/babylon-lightscript": "^0.4.8"
   },
   "files": [
-    "bin/",
+    "bin",
     "stdlib.js",
     "index.js"
   ],

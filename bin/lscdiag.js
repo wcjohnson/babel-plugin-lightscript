@@ -1,7 +1,4 @@
-// Use the LSC test suite to test for missing source map information in LSC output.
-
-// XXX: This may not be the ideal way to do this, but I don't want to mess with the
-// `babel-helper-plugin-test-runner`.
+#!/usr/bin/env node
 
 const fs = require("fs");
 const glob = require("glob");
