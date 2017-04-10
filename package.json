@@ -1,6 +1,6 @@
 {
   "name": "@oigroup/babel-plugin-lightscript",
-  "version": "0.4.9",
+  "version": "0.4.10",
   "description": "Compile LightScript to JavaScript.",
   "main": "index.js",
   "engines": {
@@ -20,7 +20,7 @@
   "homepage": "http://lightscript.org/",
   "license": "MIT",
   "dependencies": {
-    "@oigroup/babylon-lightscript": "^0.4.9"
+    "@oigroup/babylon-lightscript": "^0.4.10"
   },
   "files": [
     "bin",
