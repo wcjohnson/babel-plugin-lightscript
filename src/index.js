@@ -413,8 +413,6 @@ export default function (babel) {
     return paths;
   }
 
-  // c/p from replaceExpressionWithStatements
-
   function addImplicitReturns(path) {
     transformTails(path, false, (expr) => {
       // Source map: treat the return statement as being at the same
@@ -548,15 +546,27 @@ export default function (babel) {
     }
   }
 
-  function blockToExpression(path, key) {
-    if (t.isBlockStatement(path.node[key])) {
-      path.get(key).canSwapBetweenExpressionAndStatement = () => true;
-      path.get(key).replaceExpressionWithStatements(path.node[key].body);
-      return path.node[key];
-    } else if (t.isExpressionStatement(path.node[key])) {
-      return path.node[key].expression;
+  function blockToExpression(path) {
+    const node = path.node;
+    if (t.isBlockStatement(node)) {
+      path.canSwapBetweenExpressionAndStatement = () => true;
+      path.replaceExpressionWithStatements(path.node.body);
+      return path.node;
+    } else if (isFunctionDeclaration(node)) {
+      // Special case: the parser promotes a block consisting of a single declaration
+      // from ExprStatement(FunctionExpr) to FunctionDeclaration. Convert back to
+      // expression here.
+      const nextNode = t.clone(node);
+      if (nextNode.type === "NamedArrowDeclaration") {
+        nextNode.type = "NamedArrowExpression";
+      } else {
+        nextNode.type = "FunctionExpression";
+      }
+      return nextNode;
+    } else if (t.isExpressionStatement(node)) {
+      return node.expression;
     } else {
-      return path.node[key];
+      return node;
     }
   }
 
@@ -1133,11 +1143,11 @@ export default function (babel) {
       },
 
       IfExpression(path) {
-        const consequent = blockToExpression(path, "consequent");
+        const consequent = blockToExpression(path.get("consequent"));
 
         let alternate;
         if (path.node.alternate) {
-          alternate = blockToExpression(path, "alternate");
+          alternate = blockToExpression(path.get("alternate"));
         } else {
           alternate = t.nullLiteral();
         }
