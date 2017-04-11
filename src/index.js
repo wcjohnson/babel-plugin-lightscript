@@ -947,38 +947,51 @@ export default function (babel) {
           refId = path.node.object;
         }
 
-        // Loop initializer: const _k
-        let key = path.node.key || path.scope.generateUidIdentifier("k");
-        let init = t.variableDeclaration("const", [ t.variableDeclarator(key, null) ]);
-
-        // if(!_obj.hasOwnProperty(_k)) continue
-        const hasOwnPropertyStmt = t.ifStatement(
-          t.unaryExpression(
-            "!",
+        // TODO: refactor to fix copypasta
+        // let _i = 0, _arr = Object.keys(obj), _len = _arr.length
+        let idx = path.node.idx || path.scope.generateUidIdentifier("i");
+        let arr = path.scope.generateUidIdentifier("arr");
+        let len = path.scope.generateUidIdentifier("len");
+        let declarations = [
+          t.variableDeclarator(idx, t.numericLiteral(0)),
+          t.variableDeclarator(arr,
             t.callExpression(
-              t.memberExpression(refId, t.identifier("hasOwnProperty")),
-              [ key ]
+              t.memberExpression(t.identifier("Object"), t.identifier("keys")),
+              [refId]
             )
           ),
-          t.continueStatement()
-        );
+          t.variableDeclarator(len,
+            t.memberExpression(arr, t.identifier("length"))
+          )
+        ];
+        let init = t.variableDeclaration("let", declarations);
+        // _i < _len
+        let test = t.binaryExpression("<", idx, len);
+        // _i++
+        let update = t.updateExpression("++", idx);
 
-        // Element initializer: const val = _obj[_k]
-        let assignValStmt = null;
+        // Internal loop variable decls
+        let decls = [];
+        // Key initializer: const _k = _arr[_i]
+        let key = path.node.key || path.scope.generateUidIdentifier("k");
+        decls.push(
+          t.variableDeclarator(key, t.memberExpression(arr, idx, true))
+        );
+        // Optional val initializer: const val = _obj[_k]
         if (path.node.val) {
           // TODO: note that destructuring takes place here for when we add that to the parser.
           // can probably just pass the destructuring thing to the LHS of the declarator.
-          assignValStmt = t.variableDeclaration("const", [
+          decls.push(
             t.variableDeclarator(path.node.val, t.memberExpression(refId, key, true))
-          ]);
+          );
         }
+        const innerDecl = t.variableDeclaration("const", decls);
 
-        // Add hasOwnProperty, followed by element initializer, to loop body
+        // Add inner decls to loop body
         ensureBlockBody(path);
-        if (assignValStmt) path.get("body").unshiftContainer("body", assignValStmt);
-        path.get("body").unshiftContainer("body", hasOwnPropertyStmt);
+        path.get("body").unshiftContainer("body", innerDecl);
 
-        let forNode = t.forInStatement(init, refId, path.node.body);
+        let forNode = t.forStatement(init, test, update, path.node.body);
         path.replaceWith(forNode);
       },
 
