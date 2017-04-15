@@ -1,5 +1,5 @@
-for (let _i = 0, _arr = Object.keys(obj), _len = _arr.length; _i < _len; _i++) {
-  const _k = _arr[_i],
-        v = obj[_k];
+for (let _i = 0, _keys = Object.keys(obj), _len = _keys.length; _i < _len; _i++) {
+  const _k = _keys[_i];
+  const v = obj[_k];
   v;
 }
