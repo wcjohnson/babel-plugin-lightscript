@@ -34,6 +34,40 @@ LightScript targets ES2017, which won't run in many JavaScript environments. The
 
 You may require additional `babel` plugins for features like JSX, Flow typing, et cetera, just as you would when transpiling normal JS.
 
+### Options
+
+You may disable the standard library:
+
+    {
+      "plugins": [
+        ["lightscript", { "stdlib": false }]
+      ]
+    }
+
+Or disable its inclusion of lodash:
+
+    {
+      "plugins": [
+        ["lightscript", {
+          "stdlib": {
+            "lodash": false,
+          }
+        }]
+      ]
+    }
+
+Or tell it to use `require()` instead of `import`:
+
+    {
+      "plugins": [
+        ["lightscript", {
+          "stdlib": {
+            "require": true,
+          }
+        }]
+      ]
+    }
+
 ### Contributing
 
 Issues: https://github.com/wcjohnson/babel-plugin-lightscript/issues
