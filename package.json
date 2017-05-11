@@ -7,8 +7,9 @@
     "node": ">=4"
   },
   "scripts": {
-    "test": "mocha test",
-    "test:debug": "node --inspect --debug-brk mocha test",
+    "test": "npm run build && npm run test:only",
+    "test:only": "mocha test",
+    "test:debug": "node --inspect --debug-brk node_modules/.bin/_mocha test",
     "build": "babel src --out-dir .",
     "prepublish": "npm run build",
     "diag": "./bin/lscdiag.js"
