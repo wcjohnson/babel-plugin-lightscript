@@ -781,7 +781,7 @@ export default function (babel) {
     if (callExpr.callee.type === "Identifier") {
       ref = callExpr.callee;
     } else {
-      ref = path.scope.generateUidIdentifier("ref");
+      ref = path.scope.generateDeclaredUidIdentifier("ref");
       exprs.push(t.assignmentExpression("=", ref, callExpr.callee));
     }
 
@@ -1007,7 +1007,7 @@ export default function (babel) {
   definePluginType("ExistentialExpression", {
     builder: ["argument"],
     visitor: ["argument"],
-    aliases: ["UnaryLike", "Expression"],
+    aliases: ["Expression"],
     fields: {
       argument: {
         validate: assertNodeType("Expression"),
@@ -1331,7 +1331,7 @@ export default function (babel) {
         path.replaceWith(
           t.binaryExpression(
             "!=",
-            path.get("argument"),
+            path.get("argument").node,
             t.nullLiteral()
           )
         );
