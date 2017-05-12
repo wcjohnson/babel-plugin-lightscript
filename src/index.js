@@ -1,5 +1,5 @@
 import { parse } from "@oigroup/babylon-lightscript";
-import { defaultImports, lightscriptImports, lodashImports } from "./stdlib";
+import { defaultImports, lodashImports } from "./stdlib";
 
 export default function (babel) {
   const { types: t } = babel;
@@ -232,6 +232,18 @@ export default function (babel) {
     return locateAfter(newNode, sourceNode);
   }
   /* eslint-enable no-unused-vars */
+
+  const inlinedOperator = {
+    looseEq: (args) => t.binaryExpression("==", args[0], args[1]),
+    looseNotEq: (args) => t.binaryExpression("!=", args[0], args[1]),
+    bitwiseNot: (args) => t.unaryExpression("~", args[0]),
+    bitwiseAnd: (args) => t.binaryExpression("&", args[0], args[1]),
+    bitwiseOr: (args) => t.binaryExpression("|", args[0], args[1]),
+    bitwiseXor: (args) => t.binaryExpression("^", args[0], args[1]),
+    bitwiseLeftShift: (args) => t.binaryExpression("<<", args[0], args[1]),
+    bitwiseRightShift: (args) => t.binaryExpression(">>", args[0], args[1]),
+    bitwiseZeroFillRightShift: (args) => t.binaryExpression(">>>", args[0], args[1]),
+  };
 
   function isFunctionDeclaration(node) {
     return node && (t.is("FunctionDeclaration", node) || node.type === "NamedArrowDeclaration");
@@ -622,7 +634,6 @@ export default function (babel) {
     if (typeof opts.stdlib === "object") {
       return Object.assign({},
         opts.stdlib.lodash === false ? {} : lodashImports,
-        opts.stdlib.lightscript === false ? {} : lightscriptImports,
       );
     }
 
@@ -800,6 +811,19 @@ export default function (babel) {
 
     // Replace, using seqexpr if needed
     path.replaceWith( (exprs.length > 1) ? t.sequenceExpression(exprs) : exprs[0] );
+  }
+
+  function getInlinedOperatorsEnabled(opts) {
+    if (opts.stdlib === false) return false;
+    if (typeof opts.stdlib === "object" && opts.stdlib.lightscript === false) return false;
+    return true;
+  }
+
+  function replaceWithInlinedOperator(path, callee, args) {
+    if (callee.type !== "Identifier") return false;
+    const name = callee.name;
+    if (!inlinedOperator[name] || path.scope.hasBinding(name) ) return false;
+    path.replaceWith(inlinedOperator[name](args));
   }
 
   // TYPE DEFINITIONS
@@ -1021,6 +1045,7 @@ export default function (babel) {
     if (!shouldParseAsLightScript(state.file)) return;
 
     const stdlib: Stdlib = initializeStdlib(state.opts);
+    const inlinedOperatorsEnabled = getInlinedOperatorsEnabled(state.opts);
     const useRequire = state.opts.stdlib && state.opts.stdlib.require === true;
     const imports: Imports = {};
 
@@ -1080,11 +1105,10 @@ export default function (babel) {
         // can process differently from a wrapping CallExpression
         // eg; `a?.b~c()` -> `a == null ? null : c(a.b)`
         exit(path) {
-          const callExpr = t.callExpression(path.node.right, [
-            path.node.left,
-            ...path.node.arguments,
-          ]);
+          const args = [ path.node.left, ...path.node.arguments ];
+          const callExpr = t.callExpression(path.node.right, args);
 
+          if (inlinedOperatorsEnabled && replaceWithInlinedOperator(path, path.node.right, args)) return;
           if (path.node.safe) {
             replaceWithSafeCall(path, callExpr);
           } else {
@@ -1095,6 +1119,10 @@ export default function (babel) {
 
       CallExpression: {
         exit(path) {
+          if (
+            inlinedOperatorsEnabled &&
+            replaceWithInlinedOperator(path, path.node.callee, path.node.arguments)
+          ) return;
           if (path.node.safe) {
             replaceWithSafeCall(path, path.node);
           }

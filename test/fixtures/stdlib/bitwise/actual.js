@@ -1,0 +1,7 @@
+1~bitwiseNot()
+bitwiseAnd(1,1)
+1~bitwiseOr(1)
+bitwiseXor(1,1)
+1~bitwiseLeftShift(1)
+bitwiseRightShift(1,1)
+bitwiseZeroFillRightShift(1,1)

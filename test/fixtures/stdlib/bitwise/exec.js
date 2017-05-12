@@ -1,0 +1,7 @@
+assert(bitwiseNot(0)~bitwiseNot() === 0)
+assert(bitwiseAnd(1,1) === 1)
+assert(1~bitwiseOr(1) === 1)
+assert(bitwiseXor(1,1) === 0)
+assert(1~bitwiseLeftShift(1) === 2)
+assert(bitwiseRightShift(1,1) === 0)
+assert(bitwiseZeroFillRightShift(1,1) === 0)
