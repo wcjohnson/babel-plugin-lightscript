@@ -824,6 +824,7 @@ export default function (babel) {
     const name = callee.name;
     if (!inlinedOperator[name] || path.scope.hasBinding(name) ) return false;
     path.replaceWith(inlinedOperator[name](args));
+    return true;
   }
 
   // TYPE DEFINITIONS
