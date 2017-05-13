@@ -851,7 +851,7 @@ export default function (babel) {
       test = t.callExpression(
         t.memberExpression(
           testNode,
-          t.stringLiteral("test")
+          t.identifier("test")
         ),
         [discriminantRef]
       );
