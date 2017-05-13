@@ -826,45 +826,56 @@ export default function (babel) {
     path.replaceWith(inlinedOperator[name](args));
   }
 
-  function replacePlaceholderExpressions(matchPath, discriminantRef) {
-    matchPath.traverse({
-      PlaceholderExpression(phPath) {
-        phPath.replaceWith(discriminantRef);
-      }
-    });
-  }
-
-  function createMatchContinuation(matchPath, cases, idx, discriminantRef) {
-    if (idx >= cases.length) return t.nullLiteral();
-    const c = cases[idx];
-    // XXX: accessing through path may not be necessary...?
-    const testPath = matchPath.get(`cases.${idx}.test`);
+  function createMatchTest(casePath, hasPlaceholder, discriminantRef) {
+    const testPath = casePath.get("test");
     const testNode = testPath.node;
-    if (testNode.type === "MatchElse") return c.consequent;
-    const isRegexp = t.isRegExpLiteral(testNode);
 
-    let test;
-    if (isRegexp) {
+    if (hasPlaceholder) {
+      return testNode;
+    } else if (t.isRegExpLiteral(testNode)) {
       // /^regexp/.test(ref)
       // XXX: let consequent see the match results? this could be something like:
       // _ref2 = ref.match(/^regexp/); consequent(_ref2);
-      test = t.callExpression(
+      return t.callExpression(
         t.memberExpression(
           testNode,
           t.identifier("test")
         ),
         [discriminantRef]
       );
-    } else if (testPath.isIdentifier() || testPath.isLiteral()) {
-      test = t.binaryExpression("===", discriminantRef, testNode);
     } else {
-      test = testNode;
+      return t.binaryExpression("===", discriminantRef, testNode);
     }
+  }
 
-    const consequent = c.functional ? t.callExpression(c.consequent, discriminantRef) : c.consequent;
+  function createMatchContinuation(matchPath, cases, idx, discriminantRef) {
+    if (idx >= cases.length) return t.nullLiteral();
+    const c = cases[idx];
+    const casePath = matchPath.get(`cases.${idx}`);
+
+    const consequent = c.functional ? t.callExpression(c.consequent, [discriminantRef]) : c.consequent;
+
+    if (c.test.type === "MatchElse") return consequent;
+
+    let hasPlaceholder = false;
+    let nestedMatches = 0;
+    casePath.traverse({
+      // Don't traverse into nested matches; they have different
+      // discriminants.
+      MatchExpression: {
+        enter() { nestedMatches++; },
+        exit() { nestedMatches--; }
+      },
+      PlaceholderExpression(phPath) {
+        if (nestedMatches === 0) {
+          hasPlaceholder = true;
+          phPath.replaceWith(discriminantRef);
+        }
+      }
+    });
 
     return t.conditionalExpression(
-      test,
+      createMatchTest(casePath, hasPlaceholder, discriminantRef),
       consequent,
       createMatchContinuation(matchPath, cases, idx + 1, discriminantRef)
     );
@@ -1456,7 +1467,6 @@ export default function (babel) {
           exprs.push(t.assignmentExpression("=", ref, node.discriminant));
         }
 
-        replacePlaceholderExpressions(path);
         exprs.push(createMatchContinuation(path, node.cases, 0, ref));
         path.replaceWith(exprs.length > 1 ? t.sequenceExpression(exprs) : exprs[0]);
       },
