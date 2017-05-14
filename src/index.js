@@ -853,7 +853,12 @@ export default function (babel) {
     const c = cases[idx];
     const casePath = matchPath.get(`cases.${idx}`);
 
-    const consequent = c.functional ? t.callExpression(c.consequent, [discriminantRef]) : c.consequent;
+    let consequent;
+    if (c.functional) {
+      consequent = t.callExpression(c.consequent, [discriminantRef]);
+    } else {
+      consequent = blockToExpression(casePath.get("consequent"));
+    }
 
     if (c.test.type === "MatchElse") return consequent;
 
