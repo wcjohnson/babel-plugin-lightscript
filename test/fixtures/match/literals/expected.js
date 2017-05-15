@@ -1,0 +1,1 @@
+x === 2 ? "two" : x === "hello" ? "hi" : /\w+/.test(x) ? "word" : /\w+/ig.test(x) ? "word" : x === +1 ? "equal to positive one" : x === -1 ? "equal to negative one" : x === null ? "null" : x === undefined ? "undefined" : x === true ? "strict true" : x === false ? "strict false" : null;

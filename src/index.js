@@ -822,6 +822,66 @@ export default function (babel) {
     return true;
   }
 
+  function createMatchTest(casePath, hasPlaceholder, discriminantRef) {
+    const testPath = casePath.get("test");
+    const testNode = testPath.node;
+
+    if (hasPlaceholder) {
+      return testNode;
+    } else if (t.isRegExpLiteral(testNode)) {
+      // /^regexp/.test(ref)
+      // XXX: let consequent see the match results? this could be something like:
+      // _ref2 = ref.match(/^regexp/); consequent(_ref2);
+      return t.callExpression(
+        t.memberExpression(
+          testNode,
+          t.identifier("test")
+        ),
+        [discriminantRef]
+      );
+    } else {
+      return t.binaryExpression("===", discriminantRef, testNode);
+    }
+  }
+
+  function createMatchContinuation(matchPath, cases, idx, discriminantRef) {
+    if (idx >= cases.length) return t.nullLiteral();
+    const c = cases[idx];
+    const casePath = matchPath.get(`cases.${idx}`);
+
+    let consequent;
+    if (c.functional) {
+      consequent = t.callExpression(c.consequent, [discriminantRef]);
+    } else {
+      consequent = blockToExpression(casePath.get("consequent"));
+    }
+
+    if (c.test.type === "MatchElse") return consequent;
+
+    let hasPlaceholder = false;
+    let nestedMatches = 0;
+    casePath.traverse({
+      // Don't traverse into nested matches; they have different
+      // discriminants.
+      MatchExpression: {
+        enter() { nestedMatches++; },
+        exit() { nestedMatches--; }
+      },
+      PlaceholderExpression(phPath) {
+        if (nestedMatches === 0) {
+          hasPlaceholder = true;
+          phPath.replaceWith(discriminantRef);
+        }
+      }
+    });
+
+    return t.conditionalExpression(
+      createMatchTest(casePath, hasPlaceholder, discriminantRef),
+      consequent,
+      createMatchContinuation(matchPath, cases, idx + 1, discriminantRef)
+    );
+  }
+
   // TYPE DEFINITIONS
   definePluginType("ForInArrayStatement", {
     visitor: ["idx", "elem", "array", "body"],
@@ -1033,6 +1093,41 @@ export default function (babel) {
         validate: assertNodeType("Expression"),
       }
     }
+  });
+
+  definePluginType("MatchExpression", {
+    builder: ["discriminant", "cases"],
+    visitor: ["discriminant", "cases"],
+    aliases: ["Expression", "Conditional"],
+    fields: {
+      discriminant: {
+        validate: assertNodeType("Expression")
+      },
+      cases: {
+        validate: chain(assertValueType("array"), assertEach(assertNodeType("MatchCase")))
+      }
+    }
+  });
+
+  definePluginType("MatchCase", {
+    builder: ["test", "consequent", "functional"],
+    visitor: ["test", "consequent"],
+    fields: {
+      test: {
+        validate: assertNodeType("Expression")
+      },
+      consequent: {
+        validate: assertNodeType("Expression")
+      }
+    }
+  });
+
+  definePluginType("MatchElse", {
+    aliases: ["Expression"]
+  });
+
+  definePluginType("PlaceholderExpression", {
+    aliases: ["Expression"]
   });
 
   // traverse as top-level item so as to run before other babel plugins
@@ -1359,6 +1454,22 @@ export default function (babel) {
             t.nullLiteral()
           )
         );
+      },
+
+      MatchExpression(path) {
+        const exprs = [];
+        const node = path.node;
+        let ref;
+
+        if (node.discriminant.type === "Identifier") {
+          ref = node.discriminant;
+        } else {
+          ref = path.scope.generateDeclaredUidIdentifier("ref");
+          exprs.push(t.assignmentExpression("=", ref, node.discriminant));
+        }
+
+        exprs.push(createMatchContinuation(path, node.cases, 0, ref));
+        path.replaceWith(exprs.length > 1 ? t.sequenceExpression(exprs) : exprs[0]);
       },
 
     });
