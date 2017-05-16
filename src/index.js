@@ -778,7 +778,6 @@ export default function (babel) {
   }
 
   function replaceWithSafeCall(path, callExpr) {
-    const exprs = [];
     let callee;
     let typeofExpr;
 
@@ -807,12 +806,12 @@ export default function (babel) {
       callee = t.memberExpression(objectRef, propertyRef, memberExpr.computed);
     } else {
       callee = typeofExpr = path.scope.generateDeclaredUidIdentifier("ref");
-      exprs.push(t.assignmentExpression("=", callee, callExpr.callee));
+      typeofExpr = t.assignmentExpression("=", callee, callExpr.callee);
     }
 
     // Generate actual safecall expr
     // f?(x) -> (typeof f === "function") ? f(x) : null
-    exprs.push(
+    path.replaceWith(
       t.conditionalExpression(
         t.binaryExpression("===",
           t.unaryExpression("typeof", typeofExpr),
@@ -822,9 +821,6 @@ export default function (babel) {
         t.nullLiteral()
       )
     );
-
-    // Replace, using seqexpr if needed
-    path.replaceWith( (exprs.length > 1) ? t.sequenceExpression(exprs) : exprs[0] );
   }
 
   function getInlinedOperatorsEnabled(opts) {
