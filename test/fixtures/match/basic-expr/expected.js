@@ -1,0 +1,1 @@
+const y = x === 1 ? 'one' : null;

@@ -1,1 +1,1 @@
-x === 1 ? 'one' : 'not one';
+if (x === 1) 'one';else 'not one';

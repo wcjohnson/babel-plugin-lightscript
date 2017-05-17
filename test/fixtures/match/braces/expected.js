@@ -1,3 +1,3 @@
-x === 1 ? true : x === 2 ? function (x) {
+if (x === 1) true;else if (x === 2) (function (x) {
   return x;
-}(x) : false;
+})(x);else false;
