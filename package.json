@@ -22,8 +22,8 @@
   "license": "MIT",
   "dependencies": {
     "@oigroup/babylon-lightscript": "^1.0.3",
-    "ast-loc-utils": "^1.0.0",
-    "@oigroup/lightscript-ast-transforms": "1.0.3"
+    "ast-loc-utils": "^1.0.3",
+    "@oigroup/lightscript-ast-transforms": "1.0.4"
   },
   "files": [
     "bin",
