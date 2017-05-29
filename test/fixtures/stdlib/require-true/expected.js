@@ -1,7 +1,6 @@
-const {
-  map,
-  round
-} = require('lodash');
+const map = require('lodash/map');
+
+const round = require('lodash/round');
 
 1 == '1';
 1 != '1';

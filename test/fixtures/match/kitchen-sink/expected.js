@@ -1,6 +1,7 @@
 var _ref;
 
-import { isObject, isArray } from "lodash";
+import isObject from "lodash/isObject";
+import isArray from "lodash/isArray";
 const result = (_ref = slowRunningFunction(), isObject(_ref) ? function ({ a, b }) {
   return a + b;
 }(_ref) : isArray(_ref) && _ref.length > 0 ? function ([first]) {
