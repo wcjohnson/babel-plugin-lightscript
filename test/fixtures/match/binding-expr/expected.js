@@ -2,11 +2,11 @@ function _hasLength(arr, minLength, maxLength) { return arr != null && typeof ar
 
 function _isObject(obj) { return obj != null && (typeof obj === "object" || typeof obj === "function"); }
 
-const z = (_ref => {
-  if (_ref === 2 && _isObject(_ref) && "key" in _ref) {
-    const { key } = _ref;return key;
-  } else if (_ref === 3 && _hasLength(_ref, 1, 1)) {
-    const [first] = _ref;
+const z = (_it => {
+  if (_it === 2 && _isObject(_it) && "key" in _it) {
+    const { key } = _it;return key;
+  } else if (_it === 3 && _hasLength(_it, 1, 1)) {
+    const [first] = _it;
     const result = process(first);
     return processAgain(result);
   } else return other;
