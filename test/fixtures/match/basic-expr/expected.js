@@ -1,1 +1,3 @@
-const y = x === 1 ? 'one' : null;
+const y = (_ref => {
+  if (_ref === 1) return 'one';
+})(x);

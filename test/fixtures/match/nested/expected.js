@@ -1,3 +1,7 @@
-if (x > 2) (function (y) {
-  return y > 10 ? "soo big" : y > 5 ? "still pretty big" : "kinda big";
-})(x);else "some other thing";
+function _isObject(obj) { return obj != null && (typeof obj === "object" || typeof obj === "function"); }
+
+if (x > 2 && _isObject(x) && "y" in x) {
+  const { y } = x;(_ref => {
+    if (_ref > 10) return "soo big";else if (_ref > 5) return "still pretty big";else return "kinda big";
+  })(y);
+} else "some other thing";

@@ -1,7 +1,7 @@
 import { parse } from "@oigroup/babylon-lightscript";
 import { defaultImports, lodashImports } from "./stdlib";
 
-import { setTypes } from "@oigroup/lightscript-ast-transforms/lib/babelInstance";
+import { setBabel } from "@oigroup/lightscript-ast-transforms/lib/babelInstance";
 import is from "@oigroup/lightscript-ast-transforms/lib/is";
 
 import {
@@ -31,10 +31,13 @@ import {
   transformForInArrayStatement,
   transformForInObjectStatement
 } from "@oigroup/lightscript-ast-transforms/lib/for";
+import {
+  resetHelpers
+} from "@oigroup/lightscript-ast-transforms/lib/helpers";
 
 export default function (babel) {
   const { types: t } = babel;
-  setTypes(t);
+  setBabel(babel);
 
   // HELPER FUNCTIONS
   function bindMethods(path, methodIds) {
@@ -182,6 +185,8 @@ export default function (babel) {
     const inlinedOperatorsEnabled = getInlinedOperatorsEnabled(state.opts);
     const useRequire = state.opts.stdlib && state.opts.stdlib.require === true;
     const imports: Imports = {};
+
+    resetHelpers(path);
 
     path.traverse({
 
