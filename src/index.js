@@ -1,4 +1,4 @@
-import { parse } from "@oigroup/babylon-lightscript";
+import { parse } from "@oigroup/babylon-lightscript-self-host";
 import { defaultImports, lodashImports } from "./stdlib";
 
 import { setBabel } from "@oigroup/lightscript-ast-transforms/lib/babelInstance";

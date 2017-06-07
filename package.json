@@ -1,7 +1,7 @@
 {
-  "name": "@oigroup/babel-plugin-lightscript",
+  "name": "@oigroup/babel-plugin-lightscript-self-host",
   "version": "1.1.0",
-  "description": "Compile LightScript to JavaScript.",
+  "description": "Babel plugin for self-hosting the LightScript compiler in LightScript.",
   "main": "index.js",
   "engines": {
     "node": ">=4"
@@ -11,22 +11,17 @@
     "test:only": "mocha test",
     "test:debug": "node --inspect --debug-brk node_modules/.bin/_mocha test",
     "build": "babel src --out-dir .",
-    "prepublish": "npm run build",
-    "diag": "./bin/lscdiag.js"
-  },
-  "bin": {
-    "lscdiag": "./bin/lscdiag.js"
+    "prepublish": "npm run build"
   },
   "author": "Alex Rattray <rattray.alex@gmail.com> (http://alexrattray.com/)",
   "homepage": "http://lightscript.org/",
   "license": "MIT",
   "dependencies": {
-    "@oigroup/babylon-lightscript": "1.1.0",
+    "@oigroup/babylon-lightscript-self-host": "1.1.0",
     "ast-loc-utils": "^1.0.3",
     "@oigroup/lightscript-ast-transforms": "1.1.0"
   },
   "files": [
-    "bin",
     "stdlib.js",
     "index.js"
   ],
