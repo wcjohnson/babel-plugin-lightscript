@@ -1,0 +1,83 @@
+import { getTypes } from './babelInstance'
+import { transformTails } from './tails'
+
+validateComprehensionLoopBody(loopBodyPath) ->
+  loopBodyPath.traverse({
+    noScope: true
+
+    Function(path): void -> path.skip()
+
+    AwaitExpression(awaitPath) ->
+      throw awaitPath.buildCodeFrameError(
+        "`await` is not allowed within Comprehensions; " +
+        "instead, await the Comprehension (eg; `y <- [for x of xs: x]`)."
+      )
+
+    YieldExpression(yieldPath) ->
+      throw yieldPath.buildCodeFrameError("`yield` is not allowed within Comprehensions.")
+
+    ReturnStatement(returnPath) ->
+      throw returnPath.buildCodeFrameError("`return` is not allowed within Comprehensions.");
+  })
+
+wrapComprehensionInIife(bodyVarId, bodyVarInitializer, loopBody) ->
+  t = getTypes()
+
+  t.callExpression(
+    t.arrowFunctionExpression(
+      []
+      t.blockStatement([
+        t.variableDeclaration(
+          "const", [t.variableDeclarator(bodyVarId, bodyVarInitializer)]
+        )
+        loopBody
+        t.returnStatement(bodyVarId)
+      ])
+    )
+    []
+  )
+
+export transformArrayComprehension(path) ->
+  t = getTypes()
+  validateComprehensionLoopBody(path.get("loop.body"))
+
+  id = path.scope.generateUidIdentifier("arr")
+  transformTails(
+    path.get("loop.body")
+    true
+    true
+    (expr) ->
+      t.callExpression(
+        t.memberExpression(id, t.identifier("push"))
+        [expr]
+      )
+  )
+
+  path.replaceWith(wrapComprehensionInIife(id, t.arrayExpression(), path.node.loop))
+
+export transformObjectComprehension(path) ->
+  t = getTypes()
+  validateComprehensionLoopBody(path.get("loop.body"))
+
+  const id = path.scope.generateUidIdentifier("obj")
+  transformTails(
+    path.get("loop.body")
+    true
+    true
+    (seqExpr, tailPath) ->
+      if (
+        seqExpr.type !== "SequenceExpression" or
+        seqExpr.expressions.length !== 2
+      ):
+        throw tailPath.buildCodeFrameError("Object comprehensions must end" +
+        " with a (key, value) pair.")
+
+      [ keyExpr, valExpr ] = seqExpr.expressions
+
+      t.assignmentExpression("=",
+        t.memberExpression(id, keyExpr, true),
+        valExpr
+      )
+  )
+
+  path.replaceWith(wrapComprehensionInIife(id, t.objectExpression([]), path.node.loop))

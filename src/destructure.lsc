@@ -1,0 +1,61 @@
+// Generate a LogicalExpression that asserts a ref is compatible with a
+// destructuring pattern.
+
+import { getTypes } from './babelInstance'
+import { createAndExpression } from './logical'
+import { helper } from './helpers'
+
+// key in ref
+generateObjectHasPropertyTest(key, ref) ->
+  t = getTypes()
+
+  t.binaryExpression('in', t.stringLiteral(key.name), ref)
+
+export generateArrayPatternConditional(matchPath, arrayPattern, ref) ->
+  t = getTypes()
+  elements = arrayPattern.elements
+
+  let minLength = 0
+  subconditions = [for idx i, elem element in elements:
+    elementType = element?.type
+
+    // Check for mandatory elements
+    if (elementType != "RestElement" and elementType != "AssignmentPattern"): now minLength = i + 1
+
+    if elementType == "ArrayPattern":
+      generateArrayPatternConditional(matchPath, element, t.memberExpression(ref, t.numericLiteral(i), true))
+    elif elementType == "ObjectPattern":
+      generateObjectPatternConditional(matchPath, element, t.memberExpression(ref, t.numericLiteral(i), true))
+  ]
+
+  maxLength = if not (elements.length > 0 and elements[elements.length - 1].type == "RestElement"): elements.length
+
+  // Length conditionals
+  if maxLength:
+    subconditions.unshift(t.callExpression(helper('hasLength'), [ref, t.numericLiteral(minLength), t.numericLiteral(maxLength)]))
+  elif minLength > 0:
+    subconditions.unshift(t.callExpression(helper('hasLength'), [ref, t.numericLiteral(minLength)]))
+  else:
+    subconditions.unshift(t.callExpression(helper('hasLength'), [ref]))
+
+  createAndExpression(subconditions)
+
+export generateObjectPatternConditional(matchPath, objectPattern, ref) ->
+  t = getTypes()
+  properties = objectPattern.properties
+  subconditions = [t.callExpression(helper('isObject'), [ref])]
+
+  for elem property in properties:
+    key = property.key
+    valueType = property.value?.type
+
+    if valueType != "AssignmentPattern":
+      subconditions.push(generateObjectHasPropertyTest(key, ref))
+
+    match valueType:
+      | "ArrayPattern":
+        subconditions.push(generateArrayPatternConditional(matchPath, property.value, t.memberExpression(ref, key)))
+      | "ObjectPattern":
+        subconditions.push(generateObjectPatternConditional(matchPath, property.value, t.memberExpression(ref, key)))
+
+  createAndExpression(subconditions)

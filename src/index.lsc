@@ -1,39 +1,23 @@
 import { parse } from "@oigroup/babylon-lightscript";
 import { defaultImports, lodashImports } from "./stdlib";
 
-import { setBabel } from "@oigroup/lightscript-ast-transforms/lib/babelInstance";
-import is from "@oigroup/lightscript-ast-transforms/lib/is";
+import { setBabel } from "./babelInstance";
+import is from "./is";
 
 import {
   addImplicitReturns, replaceWithPlainFunction, replaceWithArrowFunction,
   replaceWithBoundFunction, isNamedArrowFunction
-} from "@oigroup/lightscript-ast-transforms/lib/functions";
-import {
-  blockToExpression, toBlockStatement
-} from "@oigroup/lightscript-ast-transforms/lib/blocks";
-import { getShadowingIdentifiers } from "@oigroup/lightscript-ast-transforms/lib/variables";
-import {
-  ensureConstructor, bindMethodsInConstructor
-} from "@oigroup/lightscript-ast-transforms/lib/classes";
-import {
-  transformMatchExpression, transformMatchStatement
-} from "@oigroup/lightscript-ast-transforms/lib/match";
-import { replaceWithSafeCall } from "@oigroup/lightscript-ast-transforms/lib/safeCall";
-import {
-  transformArrayComprehension, transformObjectComprehension
-} from "@oigroup/lightscript-ast-transforms/lib/comprehension";
-import { transformExistentialExpression } from "@oigroup/lightscript-ast-transforms/lib/existential";
-import {
-  getInlinedOperatorsEnabled,
-  replaceWithInlinedOperator
-} from "@oigroup/lightscript-ast-transforms/lib/inlinedOperators";
-import {
-  transformForInArrayStatement,
-  transformForInObjectStatement
-} from "@oigroup/lightscript-ast-transforms/lib/for";
-import {
-  resetHelpers
-} from "@oigroup/lightscript-ast-transforms/lib/helpers";
+} from "./functions";
+import { blockToExpression, toBlockStatement } from "./blocks";
+import { getShadowingIdentifiers } from "./variables";
+import { ensureConstructor, bindMethodsInConstructor } from "./classes";
+import { transformMatchExpression, transformMatchStatement } from "./match";
+import { replaceWithSafeCall } from "./safeCall";
+import { transformArrayComprehension, transformObjectComprehension } from "./comprehension";
+import { transformExistentialExpression } from "./existential";
+import { getInlinedOperatorsEnabled, replaceWithInlinedOperator } from "./inlinedOperators";
+import { transformForInArrayStatement, transformForInObjectStatement } from "./for";
+import { resetHelpers } from "./helpers";
 
 export default function (babel) {
   const { types: t } = babel;
@@ -43,18 +27,18 @@ export default function (babel) {
   function bindMethods(path, methodIds) {
     let assignId, inExpression = false;
     if (path.isClassDeclaration()) {
-      assignId = path.node.id;
+      now assignId = path.node.id;
     } else if (
       path.parentPath.isAssignmentExpression() &&
       path.parentPath.parentPath.isExpressionStatement()
     ) {
-      assignId = path.parentPath.node.left;
+      now assignId = path.parentPath.node.left;
     } else if (path.parentPath.isVariableDeclarator()) {
-      assignId = path.parentPath.node.id;
+      now assignId = path.parentPath.node.id;
     } else {
       let id = path.isClass() ? "class" : "obj";
-      assignId = path.getStatementParent().scope.generateDeclaredUidIdentifier(id);
-      inExpression = true;
+      now assignId = path.getStatementParent().scope.generateDeclaredUidIdentifier(id);
+      now inExpression = true;
     }
     t.assertOneOf(assignId, ["Identifier", "MemberExpression"]);
 
@@ -178,7 +162,7 @@ export default function (babel) {
 
   // traverse as top-level item so as to run before other babel plugins
   // (and avoid traversing any of their output)
-  function Program(path, state) {
+  function Program(path, state): void {
     if (!shouldParseAsLightScript(state.file)) return;
 
     const stdlib: Stdlib = initializeStdlib(state.opts);
@@ -190,19 +174,19 @@ export default function (babel) {
 
     path.traverse({
 
-      ForInArrayStatement(path) {
+      ForInArrayStatement(path): void {
         transformForInArrayStatement(path);
       },
 
-      ForInObjectStatement(path) {
+      ForInObjectStatement(path): void {
         transformForInObjectStatement(path);
       },
 
-      ArrayComprehension(path) {
+      ArrayComprehension(path): void {
         transformArrayComprehension(path);
       },
 
-      ObjectComprehension(path) {
+      ObjectComprehension(path): void {
         transformObjectComprehension(path);
       },
 
@@ -210,7 +194,7 @@ export default function (babel) {
         // run on exit instead of enter so that SafeMemberExpression
         // can process differently from a wrapping CallExpression
         // eg; `a?.b~c()` -> `a == null ? null : c(a.b)`
-        exit(path) {
+        exit(path): void {
           const args = [ path.node.left, ...path.node.arguments ];
           const callExpr = t.callExpression(path.node.right, args);
 
@@ -224,7 +208,7 @@ export default function (babel) {
       },
 
       CallExpression: {
-        exit(path) {
+        exit(path): void {
           if (
             inlinedOperatorsEnabled &&
             replaceWithInlinedOperator(path, path.node.callee, path.node.arguments)
@@ -235,7 +219,7 @@ export default function (babel) {
         }
       },
 
-      NamedArrowFunction(path) {
+      NamedArrowFunction(path): void {
         if (path.node.skinny) {
           replaceWithPlainFunction(path);
         } else if (path.node.generator) {
@@ -246,7 +230,7 @@ export default function (babel) {
         }
       },
 
-      NamedArrowMemberExpression(path) {
+      NamedArrowMemberExpression(path): void {
         let object = path.node.object;
         let node = path.node;
         delete node.object;
@@ -254,7 +238,7 @@ export default function (babel) {
 
         if (!node.skinny) {
           node.skinny = true;  // binding here, don't turn into arrow
-          node = t.callExpression(
+          now node = t.callExpression(
             t.memberExpression(node, t.identifier("bind")),
             [object]
           );
@@ -266,7 +250,7 @@ export default function (babel) {
         ));
       },
 
-      ArrowFunctionExpression(path) {
+      ArrowFunctionExpression(path): void {
         if (path.node.skinny) {
           replaceWithPlainFunction(path);
         } else if (path.node.generator) {
@@ -274,19 +258,19 @@ export default function (babel) {
         }
       },
 
-      Method(path) {
+      Method(path): void {
         if (isNamedArrowFunction(path.node)) {
           path.node.body = toBlockStatement(path.node.body);
         }
       },
 
-      ClassBody(path) {
+      ClassBody(path): void {
         let fatArrows = [], fatStaticArrows = [], constructorPath;
         path.node.body.forEach((method, i) => {
           if (!t.isMethod(method)) return;
 
           if (method.kind === "constructor") {
-            constructorPath = path.get(`body.${i}.body`);
+            now constructorPath = path.get(`body.${i}.body`);
           } else if (method.static && method.skinny === false) {
             fatStaticArrows.push(method.key);
             method.skinny = true; // prevent infinite recursion
@@ -298,7 +282,7 @@ export default function (babel) {
 
         let maybeAddSuper = path.parentPath.node.superClass && constructorPath;
         if (fatArrows.length || maybeAddSuper) {
-          constructorPath = ensureConstructor(path.parentPath, constructorPath, true);
+          now constructorPath = ensureConstructor(path.parentPath, constructorPath, true);
         }
 
         if (fatArrows.length) {
@@ -310,7 +294,7 @@ export default function (babel) {
         }
       },
 
-      ObjectExpression(path) {
+      ObjectExpression(path): void {
         let fatArrows = [];
         path.node.properties.forEach((prop) => {
           if (t.isMethod(prop) && prop.skinny === false) {
@@ -326,7 +310,7 @@ export default function (babel) {
       },
 
       Function: {
-        exit(path) {
+        exit(path): void {
           addImplicitReturns(path);
 
           // As this is an exit visitor, other LSC transforms have reduced
@@ -338,20 +322,20 @@ export default function (babel) {
         }
       },
 
-      IfExpression(path) {
+      IfExpression(path): void {
         const consequent = blockToExpression(path.get("consequent"));
 
         let alternate;
         if (path.node.alternate) {
-          alternate = blockToExpression(path.get("alternate"));
+          now alternate = blockToExpression(path.get("alternate"));
         } else {
-          alternate = t.nullLiteral();
+          now alternate = t.nullLiteral();
         }
 
         path.replaceWith(t.conditionalExpression(path.node.test, consequent, alternate));
       },
 
-      AssignmentExpression(path) {
+      AssignmentExpression(path): void {
         if (path.node.operator === "<-" || path.node.operator === "<!-") {
           path.node.operator = "=";
         }
@@ -366,7 +350,7 @@ export default function (babel) {
         }
       },
 
-      SafeAwaitExpression(path) {
+      SafeAwaitExpression(path): void {
         const errId = path.scope.generateUidIdentifier("err");
 
         const tryCatch = t.tryStatement(
@@ -384,7 +368,7 @@ export default function (babel) {
         path.replaceWith(awaitExpr);
       },
 
-      SafeMemberExpression(path) {
+      SafeMemberExpression(path): void {
         // x?.y -> x == null ? x : x.y
         // x?[y] -> x == null ? x : x[y]
         const { node } = path;
@@ -392,11 +376,11 @@ export default function (babel) {
 
         let left;
         if (object.type === "Identifier" || object.type === "SafeMemberExpression") {
-          left = object;
+          now left = object;
         } else {
           const ref = path.scope.generateDeclaredUidIdentifier("ref");
           node.object = ref;
-          left = t.assignmentExpression("=", ref, object);
+          now left = t.assignmentExpression("=", ref, object);
         }
 
         const nullCheck = t.binaryExpression("==", left, t.nullLiteral());
@@ -415,7 +399,7 @@ export default function (babel) {
           );
 
           if (hasChainedParent) {
-            tail = tail.parentPath;
+            now tail = tail.parentPath;
           } else {
             break;
           }
@@ -425,7 +409,7 @@ export default function (babel) {
         tail.replaceWith(ternary);
       },
 
-      AwaitExpression(path) {
+      AwaitExpression(path): void {
         if (path.get("argument").isArrayExpression() || path.node.argument.type === "ArrayComprehension") {
           const promiseDotAllCall = t.callExpression(
             t.memberExpression(t.identifier("Promise"), t.identifier("all")),
@@ -435,7 +419,7 @@ export default function (babel) {
         }
       },
 
-      VariableDeclaration(path) {
+      VariableDeclaration(path): void {
         // Error on auto-const when shadowing variable
         if (path.node.kind === "const") {
           if (path.node.extra && path.node.extra.implicit === true) {
@@ -453,7 +437,7 @@ export default function (babel) {
       },
 
       // collect functions to be imported for the stdlib
-      ReferencedIdentifier(path) {
+      ReferencedIdentifier(path): void {
         if (stdlib === false) return;
 
         const { node, scope } = path;
@@ -462,15 +446,15 @@ export default function (babel) {
         }
       },
 
-      ExistentialExpression(path) {
+      ExistentialExpression(path): void {
         transformExistentialExpression(path);
       },
 
-      MatchExpression(path) {
+      MatchExpression(path): void {
         transformMatchExpression(path);
       },
 
-      MatchStatement(path) {
+      MatchStatement(path): void {
         transformMatchStatement(path);
       },
 

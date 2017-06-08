@@ -1,0 +1,95 @@
+import is, { isa } from './is'
+import { transformTails } from './tails'
+import { getTypes } from './babelInstance'
+import { toBlockStatement } from './blocks'
+
+import getLoc from "ast-loc-utils/lib/getLoc";
+import buildAtLoc from "ast-loc-utils/lib/buildAtLoc";
+
+// Add "return" statements to all expressions in tail position inside the
+// body of the function at the given Babel traversal path.
+export addImplicitReturns(functionPath) ->
+  node = functionPath.node
+  // Don't add implicit returns to constructors, setters, or :void functions
+  if node.kind === "constructor" or node.kind === "set": return
+  if is("VoidTypeAnnotation", node.returnType?.typeAnnotation): return
+
+  t = getTypes()
+  transformTails(
+    functionPath.get("body")
+    false
+    false
+    (expr) -> buildAtLoc(getLoc(expr), t.returnStatement, expr)
+  )
+
+// Convert any functional node (NamedArrow etc) back to a JS
+// `FunctionDeclaration` or `FunctionExpression`
+export toPlainFunction(node) ->
+  t = getTypes()
+  { id, params, body, generator, async } = node;
+
+  nextNode = match node:
+    | ~isa("Statement"): t.functionDeclaration(id, params, toBlockStatement(body), generator, async)
+    | else: t.functionExpression(id, params, toBlockStatement(body), generator, async)
+
+  if node.returnType: nextNode.returnType = node.returnType
+  if node.typeParameters: nextNode.typeParameters = node.typeParameters
+
+  nextNode
+
+export replaceWithPlainFunction(path) ->
+  path.replaceWith(toPlainFunction(path.node))
+
+// Convert any functional node (NamedArrow etc) back to a JS arrow function
+// `ArrowFunctionExpression`
+export toArrowFunction(node) ->
+  t = getTypes()
+  let { id, params, body, async } = node
+
+  if (is("Statement", node)) {
+    let fn = t.arrowFunctionExpression(params, body, async);
+    if (node.returnType) fn.returnType = node.returnType;
+    if (node.typeParameters) fn.typeParameters = node.typeParameters;
+    return t.variableDeclaration("const", [t.variableDeclarator(id, fn)]);
+  } else {
+    // just throw away the id for now...
+    // TODO: think of a way to use it? or outlaw named fat-arrow expressions?
+    let fn = t.arrowFunctionExpression(params, body, async);
+    if (node.returnType) fn.returnType = node.returnType;
+    if (node.typeParameters) fn.typeParameters = node.typeParameters;
+    return fn;
+  }
+
+export replaceWithArrowFunction(path) ->
+  path.replaceWith(toArrowFunction(path.node))
+
+// Replace a functional node with a new node binding the function to `this`.
+export replaceWithBoundFunction(path) ->
+  t = getTypes()
+  if is("Statement", path.node):
+    // function f() {...}
+    // f = f.bind(this)
+    replaceWithPlainFunction(path);
+
+    const bound = t.callExpression(
+      t.memberExpression(path.node.id, t.identifier("bind")),
+      [t.thisExpression()]
+    );
+    const assignToBound = t.expressionStatement(t.assignmentExpression("=",
+      path.node.id,
+      bound
+    ))
+
+    path.insertAfter(assignToBound)
+  else:
+    // (function f() {...}).bind(this)
+    const unbound = toPlainFunction(path.node);
+    const bound = t.callExpression(
+      t.memberExpression(unbound, t.identifier("bind")),
+      [t.thisExpression()]
+    );
+    path.replaceWith(bound)
+
+export isNamedArrowFunction(node) ->
+  // XXX: this seems a bit hackish.
+  typeof node.skinny === "boolean"

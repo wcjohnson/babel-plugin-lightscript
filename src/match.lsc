@@ -1,0 +1,163 @@
+import { getTypes } from './babelInstance'
+import { toBlockStatement, toStatement } from './blocks'
+import { isa } from './is'
+import { undeclaredRef } from './ref'
+import { generateArrayPatternConditional, generateObjectPatternConditional } from './destructure'
+import { createAndExpression } from './logical'
+
+import getLoc from 'ast-loc-utils/lib/getLoc'
+import buildAtLoc from 'ast-loc-utils/lib/buildAtLoc'
+import placeAtLoc from 'ast-loc-utils/lib/placeAtLoc'
+import span from 'ast-loc-utils/lib/span'
+
+transformMatchPlaceholders(path, discriminantRef) ->
+  path.traverse({
+    noScope: true // linter compatibility
+
+    PlaceholderExpression(phPath) ->
+      phPath.replaceWith(discriminantRef)
+  })
+
+createMatchTest(casePath, matchTransformationState) ->
+  { matchPath, discriminantRef } = matchTransformationState
+  exprs = []
+
+  caseNode = casePath.node
+  testPath = casePath.get("test")
+  testNode = testPath.node
+  if testNode:
+    exprs.push(createMatchUnboundTest(casePath, testPath, testNode, matchTransformationState))
+
+  match caseNode.binding?.type:
+    | "ArrayPattern":
+      exprs.push(generateArrayPatternConditional(matchPath, caseNode.binding, discriminantRef))
+    | "ObjectPattern":
+      exprs.push(generateObjectPatternConditional(matchPath, caseNode.binding, discriminantRef))
+
+  createAndExpression(exprs)
+
+isUndefined(node) ->
+  node.type == "Identifier" and node.name == "undefined"
+
+isSignedNumber(node) ->
+  node.type == "UnaryExpression" and
+  (node.operator == "+" or node.operator == "-") and
+  node.argument.type == "NumericLiteral"
+
+createMatchTestReplacement(node, discriminantRef) ->
+  match node:
+    | ~isa("LogicalExpression"):
+      node.left = createMatchTestReplacement(node.left, discriminantRef)
+      node.right = createMatchTestReplacement(node.right, discriminantRef)
+      node
+    | ~isa("UnaryExpression") and .operator == "!":
+      node.argument = createMatchTestReplacement(node.argument, discriminantRef)
+      node
+    | ~isa("RegExpLiteral"):
+      t = getTypes()
+      loc = getLoc(node)
+      buildAtLoc(loc, t.callExpression,
+        buildAtLoc(loc, t.memberExpression,
+          node, buildAtLoc(loc, t.identifier, "test")
+        )
+        [discriminantRef]
+      )
+    | ~isUndefined() or ~isa("Literal") or ~isSignedNumber():
+      t = getTypes()
+      loc = getLoc(node)
+      buildAtLoc(loc, t.binaryExpression, "===", discriminantRef, node)
+    | else:
+      node
+
+createMatchUnboundTest(casePath, testPath, testNode, matchTransformationState) ->
+  { discriminantRef } = matchTransformationState
+
+  testPath.replaceWith(createMatchTestReplacement(testNode, discriminantRef))
+  transformMatchPlaceholders(testPath, discriminantRef)
+
+  testPath.node
+
+bindingToAnonymousBlock(binding, body, discriminantRef) ->
+  t = getTypes()
+  newBody = toBlockStatement(body)
+  // const <binding> = _ref
+  loc = getLoc(binding)
+  newBody.body.unshift(
+    buildAtLoc(loc, t.variableDeclaration, "const", [
+      buildAtLoc(loc, t.variableDeclarator, binding, discriminantRef)
+    ])
+  )
+  newBody
+
+createMatchConsequent(casePath, discriminantRef) ->
+  caseNode = casePath.node
+  match caseNode:
+    | .binding:
+      { binding, consequent } = caseNode
+      bindingToAnonymousBlock(binding, consequent, discriminantRef)
+    | else:
+      { consequent } = caseNode
+      toStatement(consequent)
+
+createMatchContinuation(idx, matchTransformationState) ->
+  t = getTypes()
+  { matchPath, cases, discriminantRef } = matchTransformationState
+
+  if idx >= cases.length:
+    // Don't make empty else clauses.
+    return if idx > 0:
+      null
+    else:
+      buildAtLoc(span(getLoc(matchPath.node), -1), t.emptyStatement)
+
+  c = cases[idx]
+  casePath = matchPath.get(`cases.${idx}`)
+
+  consequent = createMatchConsequent(casePath, discriminantRef)
+  if (c.test?.type === "MatchElse") return consequent
+  test = createMatchTest(casePath, matchTransformationState)
+  continuation = createMatchContinuation(idx + 1, matchTransformationState)
+
+  buildAtLoc(getLoc(casePath.node), t.ifStatement, test, consequent, continuation)
+
+export transformMatchExpression(path) ->
+  t = getTypes()
+
+  node = path.node
+  originalDiscriminant = node.discriminant
+  node.type = "MatchStatement"
+
+  argRef = path.scope.generateUidIdentifier("it")
+  placeAtLoc(argRef, span(getLoc(node), 1))
+  node.discriminant = argRef
+
+  surroundingLoc = getLoc(node)
+
+  // Transform to IIFE wrapping MatchStatement.
+  path.replaceWith(
+    buildAtLoc(surroundingLoc, t.callExpression,
+      buildAtLoc(surroundingLoc, t.arrowFunctionExpression,
+        [argRef],
+        buildAtLoc(surroundingLoc, t.blockStatement, [node])
+      )
+      [originalDiscriminant]
+    )
+  )
+
+export transformMatchStatement(path) ->
+  t = getTypes()
+  node = path.node
+
+  { ref, declarator, isComplex } = undeclaredRef(path, node.discriminant, "it")
+  if isComplex:
+    path.insertBefore(
+      buildAtLoc(getLoc(declarator), t.variableDeclaration, "const", [declarator])
+    )
+
+  matchTransformationState = {
+    matchPath: path
+    discriminantRef: ref
+    cases: node.cases
+  }
+
+  path.replaceWith(createMatchContinuation(0, matchTransformationState))

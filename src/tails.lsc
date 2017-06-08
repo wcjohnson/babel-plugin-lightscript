@@ -1,0 +1,55 @@
+import { isa } from './is'
+import { toStatement } from './blocks'
+
+// c/p babel-traverse/src/path/family.js getCompletionRecords
+
+// Locate all Babel traversal paths that are in tail position with
+// respect to the node at the given starting path.
+export getTails(path, allowLoops) ->
+  node = path.node
+  let paths = []
+
+  add(_path) ->
+    if (_path): now paths = paths.concat(getTails(_path, allowLoops))
+
+  match node:
+    | ~isa("IfStatement"):
+      add(path.get("consequent"))
+      add(path.get("alternate"))
+    | ~isa("DoExpression"):
+      add(path.get("body"))
+    | allowLoops and (~isa("For") or ~isa("While")):
+      add(path.get("body"))
+    | ~isa("Program") or ~isa("BlockStatement"):
+      add(path.get("body").pop())
+    | ~isa("TryStatement"):
+      add(path.get("block"))
+      add(path.get("handler"))
+      add(path.get("finalizer"))
+    | ~isa("MatchStatement"):
+      for idx i in node.cases:
+        add(path.get(`cases.${i}.consequent`))
+    | else:
+      paths.push(path)
+
+  paths
+
+export transformTails(path, allowLoops, allowExprs, getNewNode) ->
+  tailPaths = getTails(path, allowLoops)
+
+  for elem tailPath in tailPaths:
+    match tailPath:
+      | allowExprs and ~isa("Expression"):
+        tailPath.replaceWith(getNewNode(tailPath.node, tailPath))
+      | ~isa("ExpressionStatement"):
+        tailPath.replaceWith(getNewNode(tailPath.node.expression, tailPath))
+      | ~isa("VariableDeclaration"):
+        // TODO: handle declarations.length > 1
+        // TODO: add linting to discourage
+        tailPath.insertAfter(
+          toStatement(
+            getNewNode(tailPath.node.declarations[0].id, tailPath)
+          )
+        )
+      | ~isa("FunctionDeclaration"):
+        tailPath.insertAfter(toStatement(getNewNode(tailPath.node.id, tailPath)))

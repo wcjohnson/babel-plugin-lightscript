@@ -1,0 +1,9 @@
+// Get all identifiers in the given `VariableDeclaration` that would shadow
+// identifiers defined in a higher scope.
+export getShadowingIdentifiers(declarationPath) ->
+  if not declarationPath.scope.parent: return []
+
+  [for idx i in declarationPath.node.declarations:
+    for val id in declarationPath.get(`declarations.${i}`).getBindingIdentifiers():
+      if declarationPath.scope.parent.hasBinding(id.name): id
+  ]

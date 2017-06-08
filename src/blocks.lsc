@@ -1,0 +1,59 @@
+import { getTypes } from './babelInstance'
+import is, { isa } from './is'
+
+import getLoc from 'ast-loc-utils/lib/getLoc'
+import buildAtLoc from 'ast-loc-utils/lib/buildAtLoc'
+
+export toBlockStatement(body) ->
+  t = getTypes()
+  bodyLoc = getLoc(body)
+  match body:
+    | ~isa("BlockStatement"): body
+    | ~isa("Statement"): buildAtLoc(bodyLoc, t.blockStatement, [body])
+    | else: buildAtLoc(bodyLoc, t.blockStatement, [
+        buildAtLoc(bodyLoc, t.expressionStatement, body)
+      ])
+
+export toStatement(body) ->
+  t = getTypes()
+  match body:
+    | ~isa("Expression"):
+      buildAtLoc(getLoc(body), t.expressionStatement, body)
+    | else: body
+
+export toFunctionBody(body) ->
+  match body:
+    | ~isa("Expression"): body
+    | else: toBlockStatement(body)
+
+export ensureBlockBody(path) ->
+  t = getTypes()
+  if !is("BlockStatement", path.node.body):
+    path.get("body").replaceWith(
+      buildAtLoc(getLoc(path.node.body), t.blockStatement, [path.node.body])
+    );
+
+export blockToExpression(path) ->
+  t = getTypes()
+  node = path.node
+  match node:
+    | ~isa("BlockStatement"):
+      path.canSwapBetweenExpressionAndStatement = () => true
+      // XXX: source maps - this code is inside babel and makes unmapped
+      // nodes.
+      path.replaceExpressionWithStatements(path.node.body)
+      path.node
+    | ~isa("FunctionDeclaration"):
+      // Special case: the parser promotes a block consisting of a single declaration
+      // from ExprStatement(FunctionExpr) to FunctionDeclaration. Convert back to
+      // expression here.
+      nextNode = t.clone(node)
+      if nextNode.type === "NamedArrowDeclaration":
+        nextNode.type = "NamedArrowExpression";
+      else:
+        nextNode.type = "FunctionExpression";
+      nextNode
+    | ~isa("ExpressionStatement"):
+      node.expression
+    | else:
+      node

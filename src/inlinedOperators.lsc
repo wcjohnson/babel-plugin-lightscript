@@ -1,0 +1,24 @@
+import { getTypes } from './babelInstance'
+
+inlinedOperator = {
+  looseEq: (t, args) => t.binaryExpression("==", args[0], args[1])
+  looseNotEq: (t, args) => t.binaryExpression("!=", args[0], args[1])
+  bitwiseNot: (t, args) => t.unaryExpression("~", args[0])
+  bitwiseAnd: (t, args) => t.binaryExpression("&", args[0], args[1])
+  bitwiseOr: (t, args) => t.binaryExpression("|", args[0], args[1])
+  bitwiseXor: (t, args) => t.binaryExpression("^", args[0], args[1])
+  bitwiseLeftShift: (t, args) => t.binaryExpression("<<", args[0], args[1])
+  bitwiseRightShift: (t, args) => t.binaryExpression(">>", args[0], args[1])
+  bitwiseZeroFillRightShift: (t, args) => t.binaryExpression(">>>", args[0], args[1])
+}
+
+export getInlinedOperatorsEnabled(opts) ->
+  not ((opts.stdlib === false) or (typeof opts.stdlib === "object" && opts.stdlib.lightscript === false))
+
+export replaceWithInlinedOperator(path, callee, args) ->
+  t = getTypes()
+  if (callee.type !== "Identifier") return false
+  const name = callee.name
+  if (!inlinedOperator[name] || path.scope.hasBinding(name) ) return false
+  path.replaceWith(inlinedOperator[name](t, args))
+  return true

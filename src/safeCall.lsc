@@ -1,0 +1,33 @@
+import { getTypes } from './babelInstance'
+import { hoistRef } from './ref'
+import is from './is'
+
+export replaceWithSafeCall(path, callExpr) ->
+  t = getTypes()
+  let callee, typeofExpr
+
+  if is("MemberExpression", callExpr.callee):
+    memberExpr = callExpr.callee
+    { ref: objectRef, assign: object } = hoistRef(path, memberExpr.object, "obj")
+
+    let property = memberExpr.property, propertyRef = memberExpr.property
+    if memberExpr.computed:
+      now { ref: propertyRef, assign: property } = hoistRef(path, memberExpr.property, "prop")
+
+    now typeofExpr = t.memberExpression(object, property, memberExpr.computed)
+    now callee = t.memberExpression(objectRef, propertyRef, memberExpr.computed)
+  else:
+    now { ref: callee, assign: typeofExpr } = hoistRef(path, callExpr.callee)
+
+  // Generate actual safecall expr
+  // f?(x) -> (typeof f === "function") ? f(x) : null
+  path.replaceWith(
+    t.conditionalExpression(
+      t.binaryExpression("===",
+        t.unaryExpression("typeof", typeofExpr),
+        t.stringLiteral("function")
+      ),
+      t.callExpression(callee, callExpr.arguments),
+      t.nullLiteral()
+    )
+  )

@@ -1,0 +1,12 @@
+import { getTypes } from './babelInstance'
+import getSurroundingLoc from 'ast-loc-utils/lib/getSurroundingLoc'
+import buildAtLoc from 'ast-loc-utils/lib/buildAtLoc'
+
+export createAndExpression(conditions) ->
+  t = getTypes()
+  match conditions:
+    | .length == 0: t.booleanLiteral(true)
+    | .length == 1: conditions[0]
+    | else:
+      loc = getSurroundingLoc(conditions)
+      buildAtLoc(loc, t.logicalExpression, "&&", conditions[0], createAndExpression(conditions.slice(1)))

@@ -1,0 +1,14 @@
+let babelInstance = null
+
+import patch from './util/babelTypesPatch'
+import { registerLightscriptNodeTypes } from './lscNodeTypes'
+
+export setBabel(babel) ->
+  t = babel.types
+  patch(t)
+  registerLightscriptNodeTypes(t)
+  now babelInstance = babel
+
+export getBabel() -> babelInstance
+
+export getTypes() -> babelInstance.types

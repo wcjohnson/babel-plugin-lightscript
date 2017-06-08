@@ -1,4 +1,8 @@
 {
-  "presets": [["env", { "targets": { "node": 4 } }]],
-  "plugins": ["add-module-exports", "transform-flow-strip-types"]
+  "plugins": [
+    "@oigroup/babel-plugin-lightscript-self-host",
+    "add-module-exports",
+    "transform-flow-strip-types"
+  ],
+  "presets": [["env", { "targets": { "node": 4 } }]]
 }

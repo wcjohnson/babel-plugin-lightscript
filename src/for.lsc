@@ -1,0 +1,110 @@
+import { getTypes } from './babelInstance'
+import { ensureBlockBody } from './blocks'
+import is from './is'
+
+generateForInIterator(path, type: "array" | "object") ->
+  t = getTypes()
+  idx = path.node.idx || path.scope.generateUidIdentifier("i")
+
+  // _i = 0
+  initDeclarations = [
+    t.variableDeclarator(idx, t.numericLiteral(0))
+  ];
+
+  // (_obj|_arr) = <expr>
+  refId = if (is("Identifier", path.node[type])):
+    path.node[type];
+  else:
+    // if the target of iteration is a complex expression,
+    // create a reference so it only evaluates once
+    const refName = type === "object" ? "obj" : "arr";
+    const refId = path.scope.generateUidIdentifier(refName);
+    initDeclarations.unshift(
+      t.variableDeclarator(
+        refId,
+        path.node[type]
+      )
+    )
+    refId
+
+  // _keys = Object.keys(_obj)
+  let keys;
+  if (type === "object") {
+    now keys = path.scope.generateUidIdentifier("keys");
+    initDeclarations.push(
+      t.variableDeclarator(keys,
+        t.callExpression(
+          t.memberExpression(
+            t.identifier("Object"),
+            t.identifier("keys")),
+          [refId]
+        )
+      )
+    );
+  }
+
+  // _len = (_keys | _arr).length
+  len = path.scope.generateUidIdentifier("len")
+  initDeclarations.push(
+    t.variableDeclarator(
+      len,
+      t.memberExpression(
+        type === "object" ? keys : refId,
+        t.identifier("length")
+      )
+    )
+  );
+
+  const init = t.variableDeclaration("let", initDeclarations);
+  // _i < _len
+  const test = t.binaryExpression("<", idx, len);
+  // _i++
+  const update = t.updateExpression("++", idx);
+
+  ensureBlockBody(path);
+  const innerDeclarations = [];
+  if (type === "object") {
+    // _k = _keys[_i]
+    const key = path.node.key || path.scope.generateUidIdentifier("k");
+    innerDeclarations.push(
+      t.variableDeclaration("const", [
+        t.variableDeclarator(key, t.memberExpression(keys, idx, true))
+      ])
+    );
+
+    // val = _obj[_k]
+    if (path.node.val) {
+      innerDeclarations.push(
+        t.variableDeclaration("const", [
+          t.variableDeclarator(
+            path.node.val,
+            t.memberExpression(refId, key, true)
+          )
+        ])
+      );
+    }
+  } else {
+    // elem = _arr[_i]
+    if (path.node.elem) {
+      innerDeclarations.push(
+        t.variableDeclaration("const", [
+          t.variableDeclarator(
+            path.node.elem,
+            t.memberExpression(refId, idx, true)
+          )
+        ])
+      );
+    }
+  }
+
+  if (innerDeclarations.length > 0) {
+    path.get("body").unshiftContainer("body", innerDeclarations);
+  }
+
+  t.forStatement(init, test, update, path.node.body)
+
+export transformForInArrayStatement(path) ->
+  path.replaceWith(generateForInIterator(path, "array"))
+
+export transformForInObjectStatement(path) ->
+  path.replaceWith(generateForInIterator(path, "object"))
