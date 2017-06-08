@@ -1,12 +1,35 @@
-import { getTypes } from './babelInstance'
+import t from './lightscriptTypes'
 import getSurroundingLoc from 'ast-loc-utils/lib/getSurroundingLoc'
-import buildAtLoc from 'ast-loc-utils/lib/buildAtLoc'
+import atLoc from 'ast-loc-utils/lib/placeAtLoc'
+import atNode from 'ast-loc-utils/lib/placeAtNode'
 
-export createAndExpression(conditions) ->
-  t = getTypes()
+export createLogicalExpression(operator, ...conditions) ->
+  if conditions.length == 1 and Array.isArray(conditions[0]):
+    now conditions = conditions[0]
+
   match conditions:
-    | .length == 0: t.booleanLiteral(true)
-    | .length == 1: conditions[0]
+    | .length == 0:
+      if operator == "&&": t.booleanLiteral(true) else: t.booleanLiteral(false)
+    | .length == 1:
+      conditions[0]
     | else:
-      loc = getSurroundingLoc(conditions)
-      buildAtLoc(loc, t.logicalExpression, "&&", conditions[0], createAndExpression(conditions.slice(1)))
+      t.logicalExpression(
+        operator
+        conditions[0]
+        createLogicalExpression(operator, conditions.slice(1))
+      )~atLoc(getSurroundingLoc(conditions))
+
+export createAndExpression(...conditions) ->
+  if conditions.length == 1 and Array.isArray(conditions[0]):
+    now conditions = conditions[0]
+
+  createLogicalExpression("&&", conditions)
+
+export createOrExpression(...conditions) ->
+  if conditions.length == 1 and Array.isArray(conditions[0]):
+    now conditions = conditions[0]
+
+  createLogicalExpression("||", conditions)
+
+export createNotExpression(condition) ->
+  t.unaryExpression("!", condition)~atNode(condition)
