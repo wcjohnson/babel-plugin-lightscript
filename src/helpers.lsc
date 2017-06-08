@@ -1,4 +1,5 @@
 import { getBabel } from './babelInstance'
+import { isa } from './is'
 
 let helpers = {}
 let helperPath = null
@@ -6,6 +7,12 @@ let helperPath = null
 export resetHelpers(path) ->
   now helperPath = path
   now helpers = {}
+
+insertAfterImports(path, node): void ->
+  for elem p in path.get("body"):
+    if not p~isa("ImportDeclaration"):
+      p.insertBefore(node)
+      break
 
 export getHelper(key, makeHelper) ->
   helper = helpers[key]
@@ -22,7 +29,8 @@ export getHelper(key, makeHelper) ->
   functionExpr._generated = true
   functionExpr.id = ref
   functionExpr.type = "FunctionDeclaration"
-  helperPath.unshiftContainer("body", functionExpr)
+
+  insertAfterImports(helperPath, functionExpr)
 
   helpers[key] = ref
 
