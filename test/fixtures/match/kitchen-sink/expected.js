@@ -19,7 +19,5 @@ const result = ((_it) => {
     const [a, b = 1, { c, d: [e, f = 1, ...g], h: { i, j } = k }] = _it;return "stuff";
   } else if (_hasLength(_it, 1)) {
     const [first, ...rest] = _it;return first;
-  } else if (typeof _it === "function" ? _it(safeArg) : null) return "it was a function and it returned truthy";else if (!test(_it)) return "fails my test";else if (_it != null) return "exists";else if (!(_it != null)) return "doesn't exist";else if (!(_it != null)) return "really doesn't exist for sure this time";else {
-    throw new Error("something wicked this way comes");
-  }
+  } else if (typeof _it === "function" ? _it(safeArg) : null) return "it was a function and it returned truthy";else if (!test(_it)) return "fails my test";else if (_it != null) return "exists";else if (!(_it != null)) return "doesn't exist";else if (!(_it != null)) return "really doesn't exist for sure this time";else throw new Error("something wicked this way comes");
 })(slowRunningFunction());
