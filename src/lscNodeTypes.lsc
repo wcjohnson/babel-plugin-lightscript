@@ -249,12 +249,16 @@ export registerLightscriptNodeTypes(t): void ->
   });
 
   definePluginType("MatchCase", {
-    builder: ["test", "consequent", "functional"],
-    visitor: ["test", "consequent"],
+    builder: ["test", "binding", "consequent"],
+    visitor: ["test", "binding", "consequent"],
     fields: {
       test: {
-        validate: assertNodeType("Expression")
+        validate: assertNodeType("Expression", "MatchElse")
       },
+      binding: {
+        validate: assertNodeType("ArrayPattern", "ObjectPattern")
+        optional: true
+      }
       consequent: {
         validate: assertNodeType("Expression", "BlockStatement", "ExpressionStatement")
       }
