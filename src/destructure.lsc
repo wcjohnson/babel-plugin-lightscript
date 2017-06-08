@@ -1,61 +1,98 @@
 // Generate a LogicalExpression that asserts a ref is compatible with a
 // destructuring pattern.
 
-import { getTypes } from './babelInstance'
-import { createAndExpression } from './logical'
+import t from './lightscriptTypes'
+import { createAndExpression as And, createOrExpression as Or, createNotExpression as Not } from './logical'
 import { helper } from './helpers'
+import atNode from 'ast-loc-utils/lib/placeAtNode'
 
-// key in ref
-generateObjectHasPropertyTest(key, ref) ->
-  t = getTypes()
+export isDestructuringPattern(node) ->
+  node.type == "ArrayPattern" or node.type == "ObjectPattern"
 
-  t.binaryExpression('in', t.stringLiteral(key.name), ref)
+export matchesDestructuringPattern(ref, pattern) ->
+  match pattern.type:
+    | "ArrayPattern": ref~matchesArrayPattern(pattern)
+    | "ObjectPattern": ref~matchesObjectPattern(pattern)
 
-export generateArrayPatternConditional(matchPath, arrayPattern, ref) ->
-  t = getTypes()
+////////// Array pattern matching
+Bracket(array, i, element) ->
+  t.memberExpression(
+    array
+    t.numericLiteral(i)~atNode(element)
+    true
+  )~atNode(element)
+
+HasLength(array, min, max, patternNode) ->
+  args = if max:
+    [ array, t.numericLiteral(min)~atNode(patternNode), t.numericLiteral(max)~atNode(patternNode) ]
+  elif min > 0:
+    [ array, t.numericLiteral(min)~atNode(patternNode) ]
+  else:
+    [ array ]
+
+  t.callExpression(
+    helper('hasLength')~t.clone()~atNode(patternNode)
+    args
+  )
+
+export matchesArrayPattern(array, arrayPattern) ->
   elements = arrayPattern.elements
 
   let minLength = 0
-  subconditions = [for idx i, elem element in elements:
+  conditions = [for idx i, elem element in elements:
     elementType = element?.type
 
     // Check for mandatory elements
-    if (elementType != "RestElement" and elementType != "AssignmentPattern"): now minLength = i + 1
+    if elementType != "RestElement" and elementType != "AssignmentPattern":
+      now minLength = i + 1
 
-    if elementType == "ArrayPattern":
-      generateArrayPatternConditional(matchPath, element, t.memberExpression(ref, t.numericLiteral(i), true))
-    elif elementType == "ObjectPattern":
-      generateObjectPatternConditional(matchPath, element, t.memberExpression(ref, t.numericLiteral(i), true))
+    if isDestructuringPattern(element):
+      array~Bracket(i, element)~matchesDestructuringPattern(element)
   ]
 
   maxLength = if not (elements.length > 0 and elements[elements.length - 1].type == "RestElement"): elements.length
 
   // Length conditionals
-  if maxLength:
-    subconditions.unshift(t.callExpression(helper('hasLength'), [ref, t.numericLiteral(minLength), t.numericLiteral(maxLength)]))
-  elif minLength > 0:
-    subconditions.unshift(t.callExpression(helper('hasLength'), [ref, t.numericLiteral(minLength)]))
-  else:
-    subconditions.unshift(t.callExpression(helper('hasLength'), [ref]))
+  conditions.unshift(array~HasLength(minLength, maxLength, arrayPattern))
 
-  createAndExpression(subconditions)
+  And(conditions)
 
-export generateObjectPatternConditional(matchPath, objectPattern, ref) ->
-  t = getTypes()
+////////// Object pattern matching
+In(key, obj) ->
+  t.binaryExpression(
+    'in'
+    t.stringLiteral(key.name)~atNode(key)
+    obj
+  )~atNode(key)
+
+Dot(obj, key) ->
+  t.memberExpression(obj, key)~atNode(key)
+
+IsObject(ref, patternNode) ->
+  t.callExpression(
+    helper('isObject')~t.clone()~atNode(patternNode)
+    [ref]
+  )~atNode(patternNode)
+
+export matchesObjectPattern(obj, objectPattern) ->
   properties = objectPattern.properties
-  subconditions = [t.callExpression(helper('isObject'), [ref])]
 
-  for elem property in properties:
-    key = property.key
-    valueType = property.value?.type
+  conditions = [for elem property in properties:
+    { key, value } = property
 
-    if valueType != "AssignmentPattern":
-      subconditions.push(generateObjectHasPropertyTest(key, ref))
+    match value:
+      | .type == "AssignmentPattern" and isDestructuringPattern(.left):
+        Or(
+          Not(key~In(obj))
+          obj~Dot(key)~matchesDestructuringPattern(value.left)
+          // value.right~matchesDestructuringPattern(value.left)
+        )
+      | ~isDestructuringPattern():
+        obj~Dot(key)~matchesDestructuringPattern(value)
+      | .type != "AssignmentPattern":
+        key~In(obj)
+  ]
 
-    match valueType:
-      | "ArrayPattern":
-        subconditions.push(generateArrayPatternConditional(matchPath, property.value, t.memberExpression(ref, key)))
-      | "ObjectPattern":
-        subconditions.push(generateObjectPatternConditional(matchPath, property.value, t.memberExpression(ref, key)))
+  conditions.unshift(obj~IsObject(objectPattern))
 
-  createAndExpression(subconditions)
+  And(conditions)

@@ -2,7 +2,7 @@ import { getTypes } from './babelInstance'
 import { toBlockStatement, toStatement } from './blocks'
 import { isa } from './is'
 import { undeclaredRef } from './ref'
-import { generateArrayPatternConditional, generateObjectPatternConditional } from './destructure'
+import { isDestructuringPattern, matchesDestructuringPattern } from './destructure'
 import { createAndExpression } from './logical'
 
 import getLoc from 'ast-loc-utils/lib/getLoc'
@@ -19,7 +19,7 @@ transformMatchPlaceholders(path, discriminantRef) ->
   })
 
 createMatchTest(casePath, matchTransformationState) ->
-  { matchPath, discriminantRef } = matchTransformationState
+  { discriminantRef } = matchTransformationState
   exprs = []
 
   caseNode = casePath.node
@@ -28,11 +28,8 @@ createMatchTest(casePath, matchTransformationState) ->
   if testNode:
     exprs.push(createMatchUnboundTest(casePath, testPath, testNode, matchTransformationState))
 
-  match caseNode.binding?.type:
-    | "ArrayPattern":
-      exprs.push(generateArrayPatternConditional(matchPath, caseNode.binding, discriminantRef))
-    | "ObjectPattern":
-      exprs.push(generateObjectPatternConditional(matchPath, caseNode.binding, discriminantRef))
+  if caseNode.binding and isDestructuringPattern(caseNode.binding):
+    exprs.push(matchesDestructuringPattern(discriminantRef, caseNode.binding))
 
   createAndExpression(exprs)
 

@@ -15,7 +15,7 @@ const result = ((_it) => {
     const [a, b = 1, c, ...d] = _it;return "length must be at least 3";
   } else if (_hasLength(_it, 3, 3)) {
     const [a, b = 1, c] = _it;return "length must be exactly 3";
-  } else if (_hasLength(_it, 3, 3) && _isObject(_it[2]) && "c" in _it[2] && "d" in _it[2] && _hasLength(_it[2].d, 1)) {
+  } else if (_hasLength(_it, 3, 3) && _isObject(_it[2]) && "c" in _it[2] && _hasLength(_it[2].d, 1) && (!("h" in _it[2]) || _isObject(_it[2].h) && "i" in _it[2].h && "j" in _it[2].h)) {
     const [a, b = 1, { c, d: [e, f = 1, ...g], h: { i, j } = k }] = _it;return "stuff";
   } else if (_hasLength(_it, 1)) {
     const [first, ...rest] = _it;return first;
