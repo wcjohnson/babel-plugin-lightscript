@@ -12,6 +12,7 @@
     "test:debug": "node --inspect --debug-brk node_modules/.bin/_mocha test",
     "clean": "rimraf lib",
     "build": "babel -x \".js\",\".lsc\" src --out-dir lib",
+    "preversion": "npm run test",
     "prepublish": "npm run clean && npm run build"
   },
   "author": "Alex Rattray <rattray.alex@gmail.com> (http://alexrattray.com/)",
