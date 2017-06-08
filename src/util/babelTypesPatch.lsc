@@ -1,4 +1,7 @@
 export default patch(t) ->
+  if t.__hasPluggableTypesPatch: return t
+  t.__hasPluggableTypesPatch = true
+
   t.getType(val) -> {
     if (Array.isArray(val)) {
       return "array";
