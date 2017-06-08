@@ -1,7 +1,9 @@
+// API for accessing a Babel instance that comes from dependency injection
 let babelInstance = null
 
 import patch from './util/babelTypesPatch'
 import { registerLightscriptNodeTypes } from './lscNodeTypes'
+import types from './lightscriptTypes'
 
 export setBabel(babel) ->
   t = babel.types
@@ -11,4 +13,4 @@ export setBabel(babel) ->
 
 export getBabel() -> babelInstance
 
-export getTypes() -> babelInstance.types
+export getTypes() -> types

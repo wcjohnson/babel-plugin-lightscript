@@ -1,0 +1,12 @@
+import patch from './util/babelTypesPatch'
+import { registerLightscriptNodeTypes } from './lscNodeTypes'
+
+// Avoiding `import` here to ensure compatibility with environments that have
+// asynchronous `import`.
+t = require('babel-types')
+
+patch(t)
+registerLightscriptNodeTypes(t)
+
+export { t as types }
+export default t

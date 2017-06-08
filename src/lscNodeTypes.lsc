@@ -2,12 +2,11 @@ export registerLightscriptNodeTypes(t): void ->
   if t.__hasLscNodeTypes: return
   t.__hasLscNodeTypes = true
 
-  definePluginType = t.definePluginType
-  assertNodeType = t.assertNodeType
-  assertValueType = t.assertValueType
-  assertOneOf = t.assertOneOf
-  assertEach = t.assertEach
-  chain = t.chain
+  {
+    definePluginType, assertNodeType
+    assertValueType, assertOneOf
+    assertEach, chain
+  } = t
 
   definePluginType("ForInArrayStatement", {
     visitor: ["idx", "elem", "array", "body"],
