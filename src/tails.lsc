@@ -45,9 +45,10 @@ export transformTails(path, allowLoops, allowExprs, getNewNode) ->
       | ~isa("ExpressionStatement"):
         tailPath.replaceWith(getNewNode(tailPath.node.expression, tailPath))
       | ~isa("VariableDeclaration"):
-        // TODO: handle declarations.length > 1
-        // TODO: add linting to discourage
         decls = tailPath.node.declarations
+        if decls.length > 1:
+          throw tailPath.buildCodeFrameError("Ambiguous implicit `return` of multiple variables. Add an explicit `return` statement on the next line.")
+
         lhs = decls[0].id
         transformedNode = if lhs~isDestructuringPattern():
           lhs~toRestructureExpression()
