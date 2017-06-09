@@ -4,6 +4,7 @@
 import t from './lightscriptTypes'
 import { createAndExpression as And, createOrExpression as Or, createNotExpression as Not } from './logical'
 import { helper } from './helpers'
+import { isa } from './is'
 import atNode from 'ast-loc-utils/lib/placeAtNode'
 
 export isDestructuringPattern(node) ->
@@ -96,3 +97,43 @@ export matchesObjectPattern(obj, objectPattern) ->
   conditions.unshift(obj~IsObject(objectPattern))
 
   And(conditions)
+
+////////// "Restructuring" after a destructure
+export toRestructureExpression(pattern) ->
+  match pattern.type:
+    | "ArrayPattern": pattern~toRestructureExpressionForArrayPattern()
+    | "ObjectPattern": pattern~toRestructureExpressionForObjectPattern()
+
+maybeToRestructureExpression(node) ->
+  if node~isDestructuringPattern(): node~toRestructureExpression() else: node
+
+export toRestructureExpressionForArrayPattern(pattern) ->
+  t.arrayExpression(
+    [for elem element in pattern.elements:
+      match element:
+        | ~isa("AssignmentPattern"): element.left~maybeToRestructureExpression()
+        | else: element~maybeToRestructureExpression()
+    ]
+  )~atNode(pattern)
+
+restructureObjAssignment(assign, defaultKey) ->
+  if assign.left~isDestructuringPattern():
+    t.objectProperty(defaultKey, assign.left~toRestructureExpression())
+  else:
+    t.objectProperty(assign.left, assign.left, false, true)
+
+export toRestructureExpressionForObjectPattern(pattern) ->
+  t.objectExpression(
+    [for elem property in pattern.properties:
+      match property.value:
+        | ~isDestructuringPattern():
+          t.objectProperty(
+            property.key
+            property.value~toRestructureExpression()
+          )~atNode(property)
+        | ~isa("AssignmentPattern"):
+          property.value~restructureObjAssignment(property.key)~atNode(property)
+        | ~isa("Identifier"):
+          t.objectProperty(property.value, property.value, false, true)~atNode(property)
+    ]
+  )~atNode(pattern)

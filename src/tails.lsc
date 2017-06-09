@@ -1,5 +1,6 @@
 import { isa } from './is'
 import { toStatement } from './blocks'
+import { isDestructuringPattern, toRestructureExpression } from './destructure'
 
 // c/p babel-traverse/src/path/family.js getCompletionRecords
 
@@ -46,10 +47,13 @@ export transformTails(path, allowLoops, allowExprs, getNewNode) ->
       | ~isa("VariableDeclaration"):
         // TODO: handle declarations.length > 1
         // TODO: add linting to discourage
-        tailPath.insertAfter(
-          toStatement(
-            getNewNode(tailPath.node.declarations[0].id, tailPath)
-          )
-        )
+        decls = tailPath.node.declarations
+        lhs = decls[0].id
+        transformedNode = if lhs~isDestructuringPattern():
+          lhs~toRestructureExpression()
+        else:
+          lhs
+
+        tailPath.insertAfter(toStatement(getNewNode(transformedNode, tailPath)))
       | ~isa("FunctionDeclaration"):
         tailPath.insertAfter(toStatement(getNewNode(tailPath.node.id, tailPath)))
