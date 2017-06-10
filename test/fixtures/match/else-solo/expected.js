@@ -1,1 +1,3 @@
-'not one';
+const it = x;{
+  'not one';
+}

@@ -1,10 +1,9 @@
 import t from './lightscriptTypes'
-import { toBlockStatement, toStatement } from './blocks'
+import { toBlockStatement } from './blocks'
 import { isa } from './is'
-import { undeclaredRef, isSimple } from './ref'
 import { isDestructuringPattern, matchesDestructuringPattern } from './destructure'
 import { createAndExpression as And } from './logical'
-import { containsReferencedIdentifier } from './variables'
+import { insertDeclarationBefore } from './variables'
 
 import getLoc from 'ast-loc-utils/lib/getLoc'
 import atLoc from 'ast-loc-utils/lib/placeAtLoc'
@@ -55,11 +54,11 @@ transformMatchTest(mtch, { test, binding }) ->
 
   And(conditions)
 
-transformBoundConsequent(mtch, binding, consequent) ->
+transformBoundConsequent({discriminantRef}, binding, consequent) ->
   block = toBlockStatement(consequent)
   block.body.unshift(
     t.variableDeclaration("const", [
-      t.variableDeclarator(binding, mtch.discriminantRef)~atNode(binding)
+      t.variableDeclarator(binding, discriminantRef)~atNode(binding)
     ])~atNode(binding)
   )
   block
@@ -69,7 +68,7 @@ transformMatchConsequent(mtch, c) ->
   if binding:
     mtch~transformBoundConsequent(binding, consequent)
   else:
-    consequent~toStatement()
+    consequent~toBlockStatement()
 
 transformMatchCase(mtch, c) ->
   {
@@ -99,7 +98,6 @@ export transformMatchExpression(path) ->
 
   matchBody = getMatchInfo(path, alias)~transformMatchCases(path.get("cases"))
 
-  // Wrap in IIFE
   iife = t.callExpression(
     t.arrowFunctionExpression(
       [alias], t.blockStatement([matchBody])~atNode(node)
@@ -109,28 +107,13 @@ export transformMatchExpression(path) ->
 
   path.replaceWith(iife)
 
-scopedReplace(path, replaced, replacement) ->
-  targetScope = path.scope
-  targetName = replaced.name
-
-  path.traverse({
-    Identifier(idPath): void ->
-      if idPath.scope == targetScope and idPath.node.name == targetName:
-        idPath.replaceWith(replacement)
-
-    MatchStatement(path): void -> path.skip()
-  })
-
 export transformMatchStatement(path) ->
   node = path.node
   { discriminant, alias = t.identifier("it")~atLoc(node~getLoc()~span(1)) } = node
 
-  if discriminant~isa("Identifier"):
-    path~scopedReplace(alias, discriminant)
-    path.replaceWith(
-      getMatchInfo(path, discriminant)~transformMatchCases(path.get("cases"))
-    )
-  else:
+  needsBlock = path.scope.hasBinding(alias.name)
+
+  if needsBlock:
     path.replaceWith(
       t.blockStatement([
         t.variableDeclaration("const", [
@@ -138,4 +121,9 @@ export transformMatchStatement(path) ->
         ])~atNode(discriminant)
         getMatchInfo(path, alias)~transformMatchCases(path.get("cases"))
       ])~atNode(node)
+    )
+  else:
+    path~insertDeclarationBefore(alias, discriminant, "const", discriminant~getLoc())
+    path.replaceWith(
+      getMatchInfo(path, alias)~transformMatchCases(path.get("cases"))
     )

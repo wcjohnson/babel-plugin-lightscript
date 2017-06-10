@@ -1,3 +1,6 @@
+import t from './lightscriptTypes'
+import atLoc from 'ast-loc-utils/lib/placeAtLoc'
+
 // Get all identifiers in the given `VariableDeclaration` that would shadow
 // identifiers defined in a higher scope.
 export getShadowingIdentifiers(declarationPath) ->
@@ -21,3 +24,12 @@ export containsReferencedIdentifier(path, identifier) ->
   })
 
   result
+
+// Insert a prior declaration and register it as a binding with Babel
+export insertDeclarationBefore(path, id, init, kind, loc) ->
+  path.insertBefore(
+    t.variableDeclaration(kind, [
+      t.variableDeclarator(id, init)~atLoc(loc)
+    ])~atLoc(loc)
+  )
+  path.scope.registerBinding(kind, path.getSibling(path.key - 1))

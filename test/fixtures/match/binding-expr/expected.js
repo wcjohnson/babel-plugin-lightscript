@@ -9,5 +9,7 @@ const z = (it => {
     const [first] = it;
     const result = process(first);
     return processAgain(result);
-  } else return other;
+  } else {
+    return other;
+  }
 })(x);

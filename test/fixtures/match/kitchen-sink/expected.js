@@ -19,5 +19,17 @@ const result = (it => {
     const [a, b = 1, { c, d: [e, f = 1, ...g], h: { i, j } = k }] = it;return "stuff";
   } else if (_hasLength(it, 1)) {
     const [first, ...rest] = it;return first;
-  } else if (typeof it === "function" ? it(safeArg) : null) return "it was a function and it returned truthy";else if (!test(it)) return "fails my test";else if (it != null) return "exists";else if (!(it != null)) return "doesn't exist";else if (!(it != null)) return "really doesn't exist for sure this time";else throw new Error("something wicked this way comes");
+  } else if (typeof it === "function" ? it(safeArg) : null) {
+    return "it was a function and it returned truthy";
+  } else if (!test(it)) {
+    return "fails my test";
+  } else if (it != null) {
+    return "exists";
+  } else if (!(it != null)) {
+    return "doesn't exist";
+  } else if (!(it != null)) {
+    return "really doesn't exist for sure this time";
+  } else {
+    throw new Error("something wicked this way comes");
+  }
 })(slowRunningFunction());
