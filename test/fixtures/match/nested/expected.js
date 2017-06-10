@@ -1,7 +1,7 @@
-function _isObject(obj) { return obj != null && (typeof obj === "object" || typeof obj === "function"); }
+function _hasProps(obj) { if (obj == null) return false; if (typeof obj !== "object" && typeof obj !== "function") return false; var i = arguments.length; while (--i > 0) { if (!(arguments[i] in obj)) return false; } return true; }
 
 const it = x;
-if (it > 2 && _isObject(it) && "y" in it) {
+if (it > 2 && _hasProps(it, "y")) {
   const { y } = it;{
     const it = y;
     if (it > 10) {

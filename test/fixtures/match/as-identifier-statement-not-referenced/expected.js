@@ -1,5 +1,6 @@
-if (x === 1) {
-    "foo";
-  } else if (x === "1") {
-    "bar";
-  }
+const it = x;
+if (it === 1) {
+  "foo";
+} else if (it === "1") {
+  "bar";
+}

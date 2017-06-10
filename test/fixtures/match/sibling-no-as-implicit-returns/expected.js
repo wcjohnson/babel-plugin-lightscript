@@ -1,15 +1,11 @@
 function f() {
   const it = foo();
-
   if (it === 1) {
-      "ok";
-    }
-
-  {
+    "ok";
+  }{
     const it = bar();
-
     if (it === 2) {
-        return "oops";
-      }
+      return "oops";
+    }
   }
 }
