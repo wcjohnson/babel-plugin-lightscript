@@ -19,14 +19,15 @@ isSignedNumber(node) ->
   (node.operator == "+" or node.operator == "-") and
   node.argument.type == "NumericLiteral"
 
-createMatchTestReplacement(node, discriminantRef) ->
+createMatchTestReplacement(path, discriminantRef) ->
+  node = path.node
   match node:
     | ~isa("LogicalExpression"):
-      node.left = createMatchTestReplacement(node.left, discriminantRef)
-      node.right = createMatchTestReplacement(node.right, discriminantRef)
+      node.left = createMatchTestReplacement(path.get("left"), discriminantRef)
+      node.right = createMatchTestReplacement(path.get("right"), discriminantRef)
       node
     | ~isa("UnaryExpression") and .operator == "!":
-      node.argument = createMatchTestReplacement(node.argument, discriminantRef)
+      node.argument = createMatchTestReplacement(path.get("argument"), discriminantRef)
       node
     | ~isa("RegExpLiteral"):
       loc = getLoc(node)
@@ -38,17 +39,25 @@ createMatchTestReplacement(node, discriminantRef) ->
       )~atLoc(loc)
     | ~isUndefined() or ~isa("Literal") or ~isSignedNumber():
       t.binaryExpression("===", discriminantRef, node)~atNode(node)
+    | ~isa("ObjectExpression") or ~isa("ArrayExpression"):
+      throw path.buildCodeFrameError(
+        "Object and array literals are illegal in test expressions. " +
+        "To match against a destructuring pattern, " +
+        "use `with` (eg: `| with { foo, bar }: foo + bar`)."
+      )
     | else:
       node
 
-transformPreTest({ discriminantRef }, test) ->
-  createMatchTestReplacement(test, discriminantRef)
+transformPreTest({ discriminantRef }, testPath) ->
+  createMatchTestReplacement(testPath, discriminantRef)
 
-transformMatchTest(mtch, { test, binding }) ->
+transformMatchTest(mtch, casePath) ->
+  { test, binding } = casePath.node
+  testPath = casePath.get("test")
   conditions = []
   { discriminantRef } = mtch
 
-  if test: conditions.push(mtch~transformPreTest(test))
+  if test: conditions.push(mtch~transformPreTest(testPath))
   if binding and binding~isDestructuringPattern():
     conditions.push(discriminantRef~matchesDestructuringPattern(binding))
 
@@ -63,21 +72,24 @@ transformBoundConsequent({discriminantRef}, binding, consequent) ->
   )
   block
 
-transformMatchConsequent(mtch, c) ->
-  { binding, consequent } = c
+transformMatchConsequent(mtch, casePath) ->
+  { binding, consequent } = casePath.node
   if binding:
     mtch~transformBoundConsequent(binding, consequent)
   else:
     consequent~toBlockStatement()
 
-transformMatchCase(mtch, c) ->
+transformMatchCase(mtch, casePath) ->
+  c = casePath.node
   {
-    test: if c.test?.type != "MatchElse": mtch~transformMatchTest(c)
-    consequent: mtch~transformMatchConsequent(c)
+    test: if c.test?.type != "MatchElse": mtch~transformMatchTest(casePath)
+    consequent: mtch~transformMatchConsequent(casePath)
   }
 
-transformMatchCases(mtch, [{node: c}, ...rest]) ->
-  { test, consequent } = mtch~transformMatchCase(c)
+transformMatchCases(mtch, casePaths) ->
+  [casePath, ...rest] = casePaths
+  c = casePath.node
+  { test, consequent } = mtch~transformMatchCase(casePath)
 
   if rest.length > 0:
     loc = getSurroundingLoc([c, mtch.lastCase])
