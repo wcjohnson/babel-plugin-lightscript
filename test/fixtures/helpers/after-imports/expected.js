@@ -4,9 +4,8 @@ function _hasProps(obj) { if (obj == null) return false; if (typeof obj !== "obj
 
 function _hasLength(arr, minLength, maxLength) { return arr != null && typeof arr !== "function" && (maxLength === undefined ? minLength ? arr.length >= minLength : arr.length >= 0 : arr.length >= minLength && arr.length <= maxLength); }
 
-const it = z;
-if (_hasLength(it, 1, 1)) {
-  const [w] = it;"1";
-} else if (_hasProps(it, "a")) {
-  const { a } = it;"2";
+if (_hasLength(z, 1, 1)) {
+  const [w] = z;"1";
+} else if (_hasProps(z, "a")) {
+  const { a } = z;"2";
 }

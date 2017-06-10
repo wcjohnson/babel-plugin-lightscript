@@ -1,5 +1,4 @@
-const it = x;
-if (it === 1) {
+if (x === 1) {
   'one';
 } else {
   'not one';

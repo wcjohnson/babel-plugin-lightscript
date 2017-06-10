@@ -2,11 +2,10 @@ function _hasLength(arr, minLength, maxLength) { return arr != null && typeof ar
 
 function _hasProps(obj) { if (obj == null) return false; if (typeof obj !== "object" && typeof obj !== "function") return false; var i = arguments.length; while (--i > 0) { if (!(arguments[i] in obj)) return false; } return true; }
 
-const it = x;
-if (_hasProps(it, "a")) {
-  const { a, b = c } = it;d;
-} else if (_hasLength(it, 3, 3)) {
-  const [a, b = c, d] = it;e;
-} else if (_hasProps(it, "a") && (!("b" in it) || _hasProps(it.b, "c", "d"))) {
-  const { a, b: { c, d } = e } = it;f;
+if (_hasProps(x, "a")) {
+  const { a, b = c } = x;d;
+} else if (_hasLength(x, 3, 3)) {
+  const [a, b = c, d] = x;e;
+} else if (_hasProps(x, "a") && (!("b" in x) || _hasProps(x.b, "c", "d"))) {
+  const { a, b: { c, d } = e } = x;f;
 }

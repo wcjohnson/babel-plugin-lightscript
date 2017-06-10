@@ -1,22 +1,21 @@
-const it = x;
-if (it === 2) {
+if (x === 2) {
   "two";
-} else if (it === "hello") {
+} else if (x === "hello") {
   "hi";
-} else if (/\w+/.test(it)) {
+} else if (/\w+/.test(x)) {
   "word";
-} else if (/\w+/ig.test(it)) {
+} else if (/\w+/ig.test(x)) {
   "word";
-} else if (it === +1) {
+} else if (x === +1) {
   "equal to positive one";
-} else if (it === -1) {
+} else if (x === -1) {
   "equal to negative one";
-} else if (it === null) {
+} else if (x === null) {
   "null";
-} else if (it === undefined) {
+} else if (x === undefined) {
   "undefined";
-} else if (it === true) {
+} else if (x === true) {
   "strict true";
-} else if (it === false) {
+} else if (x === false) {
   "strict false";
 }

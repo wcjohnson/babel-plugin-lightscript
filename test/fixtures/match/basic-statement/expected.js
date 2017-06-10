@@ -1,7 +1,6 @@
-const it = x;
-if (it === 1) {
+if (x === 1) {
   "one";
-} else if (it === 2) {
+} else if (x === 2) {
   "two";
 } else {
   "idk";

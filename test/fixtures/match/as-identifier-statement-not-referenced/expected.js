@@ -1,6 +1,5 @@
-const it = x;
-if (it === 1) {
+if (x === 1) {
   "foo";
-} else if (it === "1") {
+} else if (x === "1") {
   "bar";
 }

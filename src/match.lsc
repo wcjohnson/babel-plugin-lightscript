@@ -3,7 +3,7 @@ import { toBlockStatement } from './blocks'
 import { isa } from './is'
 import { isDestructuringPattern, matchesDestructuringPattern } from './destructure'
 import { createAndExpression as And } from './logical'
-import { insertDeclarationBefore } from './variables'
+import { insertDeclarationBefore, containsReferencedIdentifier } from './variables'
 
 import getLoc from 'ast-loc-utils/lib/getLoc'
 import atLoc from 'ast-loc-utils/lib/placeAtLoc'
@@ -123,9 +123,14 @@ export transformMatchStatement(path) ->
   node = path.node
   { discriminant, alias = t.identifier("it")~atLoc(node~getLoc()~span(1)) } = node
 
-  needsBlock = path.scope.hasBinding(alias.name)
+  elideAlias = discriminant~isa("Identifier") and (not path~containsReferencedIdentifier(alias))
+  needsBlock = (not elideAlias) and path.scope.hasBinding(alias.name)
 
-  if needsBlock:
+  if elideAlias:
+    path.replaceWith(
+      getMatchInfo(path, discriminant)~transformMatchCases(path.get("cases"))
+    )
+  elif needsBlock:
     path.replaceWith(
       t.blockStatement([
         t.variableDeclaration("const", [
