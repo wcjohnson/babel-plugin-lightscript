@@ -1,5 +1,5 @@
 match x:
-  | { y }: y
+  | with { y }: y
   | 2 with { key }: key
   | 3 with [ first ]:
     result = process(first)

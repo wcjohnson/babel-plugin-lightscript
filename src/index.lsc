@@ -450,13 +450,9 @@ export default function (babel) {
         transformExistentialExpression(path);
       },
 
-      MatchExpression(path): void {
-        transformMatchExpression(path);
-      },
+      MatchExpression(path): void -> transformMatchExpression(path)
+      MatchStatement(path): void -> transformMatchStatement(path)
 
-      MatchStatement(path): void {
-        transformMatchStatement(path);
-      },
 
     });
 

@@ -1,1 +1,3 @@
-'not one';
+{
+  'not one';
+}

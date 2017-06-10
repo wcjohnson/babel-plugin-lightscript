@@ -1,1 +1,5 @@
-if (x === 1) 'one';else 'not one';
+if (x === 1) {
+  'one';
+} else {
+  'not one';
+}

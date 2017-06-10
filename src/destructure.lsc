@@ -47,7 +47,7 @@ export matchesArrayPattern(array, arrayPattern) ->
     if elementType != "RestElement" and elementType != "AssignmentPattern":
       now minLength = i + 1
 
-    if isDestructuringPattern(element):
+    if element and isDestructuringPattern(element):
       array~Bracket(i, element)~matchesDestructuringPattern(element)
   ]
 
@@ -69,34 +69,37 @@ In(key, obj) ->
 Dot(obj, key) ->
   t.memberExpression(obj, key)~atNode(key)
 
-IsObject(ref, patternNode) ->
+HasProps(obj, patternNode, props) ->
+  args = props.slice()
+  args.unshift(obj)
   t.callExpression(
-    helper('isObject')~t.clone()~atNode(patternNode)
-    [ref]
+    helper('hasProps')~t.clone()~atNode(patternNode)
+    args
   )~atNode(patternNode)
 
 export matchesObjectPattern(obj, objectPattern) ->
-  properties = objectPattern.properties
+  { properties } = objectPattern
 
-  conditions = [for elem property in properties:
-    { key, value } = property
+  // _hasProps(_obj, ...)
+  conditions = [obj~HasProps(objectPattern, [
+    for elem { key, value } in properties:
+      if (not value~isa("AssignmentPattern") and key~isa("Identifier")):
+        t.stringLiteral(key.name)~atNode(key)
+  ])]
 
+  // Conditions for nested patterns
+  nestedConditions = [for elem { key, value } in properties:
     match value:
       | .type == "AssignmentPattern" and isDestructuringPattern(.left):
         Or(
           Not(key~In(obj))
           obj~Dot(key)~matchesDestructuringPattern(value.left)
-          // value.right~matchesDestructuringPattern(value.left)
         )
       | ~isDestructuringPattern():
         obj~Dot(key)~matchesDestructuringPattern(value)
-      | .type != "AssignmentPattern":
-        key~In(obj)
   ]
 
-  conditions.unshift(obj~IsObject(objectPattern))
-
-  And(conditions)
+  And(conditions.concat(nestedConditions))
 
 ////////// "Restructuring" after a destructure
 export toRestructureExpression(pattern) ->

@@ -1,3 +1,5 @@
-const y = (_it => {
-  if (_it === 1) return 'one';
+const y = (it => {
+  if (it === 1) {
+    return 'one';
+  }
 })(x);

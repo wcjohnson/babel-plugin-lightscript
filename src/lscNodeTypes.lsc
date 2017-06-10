@@ -260,7 +260,7 @@ export registerLightscriptNodeTypes(t): void ->
         optional: true
       }
       consequent: {
-        validate: assertNodeType("Expression", "BlockStatement", "ExpressionStatement")
+        validate: assertNodeType("Expression", "Statement")
       }
     }
   });

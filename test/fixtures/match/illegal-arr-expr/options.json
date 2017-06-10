@@ -1,0 +1,3 @@
+{
+  "throws": "Object and array literals are illegal in test expressions. To match against a destructuring pattern, use `with` (eg: `| with { foo, bar }: foo + bar`)."
+}

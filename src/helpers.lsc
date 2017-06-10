@@ -56,6 +56,17 @@ predefinedHelpers = {
 })
     `)()
 
+  hasProps(b) ->
+    b.template(`
+(function(obj) {
+  if (obj == null) return false;
+  if (typeof obj !== "object" && typeof obj !== "function") return false;
+  var i = arguments.length;
+  while (--i > 0) { if (!(arguments[i] in obj)) return false; }
+  return true;
+})
+    `)()
+
 }
 
 export helper(name) ->

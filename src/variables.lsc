@@ -1,3 +1,6 @@
+import t from './lightscriptTypes'
+import atLoc from 'ast-loc-utils/lib/placeAtLoc'
+
 // Get all identifiers in the given `VariableDeclaration` that would shadow
 // identifiers defined in a higher scope.
 export getShadowingIdentifiers(declarationPath) ->
@@ -7,3 +10,26 @@ export getShadowingIdentifiers(declarationPath) ->
     for val id in declarationPath.get(`declarations.${i}`).getBindingIdentifiers():
       if declarationPath.scope.parent.hasBinding(id.name): id
   ]
+
+// Check if a path contains a reference to an identifier
+export containsReferencedIdentifier(path, identifier) ->
+  let result = false
+  { name: identifierName } = identifier
+
+  path.traverse({
+    ReferencedIdentifier(refPath): void ->
+      if refPath.node.name == identifierName:
+        now result = true
+        refPath.stop()
+  })
+
+  result
+
+// Insert a prior declaration and register it as a binding with Babel
+export insertDeclarationBefore(path, id, init, kind, loc) ->
+  path.insertBefore(
+    t.variableDeclaration(kind, [
+      t.variableDeclarator(id, init)~atLoc(loc)
+    ])~atLoc(loc)
+  )
+  path.scope.registerBinding(kind, path.getSibling(path.key - 1))

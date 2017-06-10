@@ -1,3 +1,3 @@
 match x:
-  | [a, [b]]: "ha"
-  | [c, [d, [[[[e]]]]], ...f]: "woah"
+  | with [a, [b]]: "ha"
+  | with [c, [d, [[[[e]]]]], ...f]: "woah"
