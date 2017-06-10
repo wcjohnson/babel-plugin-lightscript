@@ -1,4 +1,4 @@
 match x:
-  | {a, b = c}: d
-  | [a, b = c, d]: e
-  | {a, b: {c, d} = e}: f
+  | with {a, b = c}: d
+  | with [a, b = c, d]: e
+  | with {a, b: {c, d} = e}: f

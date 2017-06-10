@@ -1,37 +1,16 @@
-import { getTypes } from './babelInstance'
+import t from './lightscriptTypes'
 import { toBlockStatement, toStatement } from './blocks'
 import { isa } from './is'
-import { undeclaredRef } from './ref'
+import { undeclaredRef, isSimple } from './ref'
 import { isDestructuringPattern, matchesDestructuringPattern } from './destructure'
-import { createAndExpression } from './logical'
+import { createAndExpression as And } from './logical'
+import { containsReferencedIdentifier } from './variables'
 
 import getLoc from 'ast-loc-utils/lib/getLoc'
-import buildAtLoc from 'ast-loc-utils/lib/buildAtLoc'
-import placeAtLoc from 'ast-loc-utils/lib/placeAtLoc'
+import atLoc from 'ast-loc-utils/lib/placeAtLoc'
+import atNode from 'ast-loc-utils/lib/placeAtNode'
+import getSurroundingLoc from 'ast-loc-utils/lib/getSurroundingLoc'
 import span from 'ast-loc-utils/lib/span'
-
-transformMatchPlaceholders(path, discriminantRef) ->
-  path.traverse({
-    noScope: true // linter compatibility
-
-    PlaceholderExpression(phPath) ->
-      phPath.replaceWith(discriminantRef)
-  })
-
-createMatchTest(casePath, matchTransformationState) ->
-  { discriminantRef } = matchTransformationState
-  exprs = []
-
-  caseNode = casePath.node
-  testPath = casePath.get("test")
-  testNode = testPath.node
-  if testNode:
-    exprs.push(createMatchUnboundTest(casePath, testPath, testNode, matchTransformationState))
-
-  if caseNode.binding and isDestructuringPattern(caseNode.binding):
-    exprs.push(matchesDestructuringPattern(discriminantRef, caseNode.binding))
-
-  createAndExpression(exprs)
 
 isUndefined(node) ->
   node.type == "Identifier" and node.name == "undefined"
@@ -51,110 +30,112 @@ createMatchTestReplacement(node, discriminantRef) ->
       node.argument = createMatchTestReplacement(node.argument, discriminantRef)
       node
     | ~isa("RegExpLiteral"):
-      t = getTypes()
       loc = getLoc(node)
-      buildAtLoc(loc, t.callExpression,
-        buildAtLoc(loc, t.memberExpression,
-          node, buildAtLoc(loc, t.identifier, "test")
-        )
+      t.callExpression(
+        t.memberExpression(
+          node, t.identifier("test")~atLoc(loc)
+        )~atLoc(loc)
         [discriminantRef]
-      )
+      )~atLoc(loc)
     | ~isUndefined() or ~isa("Literal") or ~isSignedNumber():
-      t = getTypes()
-      loc = getLoc(node)
-      buildAtLoc(loc, t.binaryExpression, "===", discriminantRef, node)
+      t.binaryExpression("===", discriminantRef, node)~atNode(node)
     | else:
       node
 
-createMatchUnboundTest(casePath, testPath, testNode, matchTransformationState) ->
-  { discriminantRef } = matchTransformationState
+transformPreTest({ discriminantRef }, test) ->
+  createMatchTestReplacement(test, discriminantRef)
 
-  testPath.replaceWith(createMatchTestReplacement(testNode, discriminantRef))
-  transformMatchPlaceholders(testPath, discriminantRef)
+transformMatchTest(mtch, { test, binding }) ->
+  conditions = []
+  { discriminantRef } = mtch
 
-  testPath.node
+  if test: conditions.push(mtch~transformPreTest(test))
+  if binding and binding~isDestructuringPattern():
+    conditions.push(discriminantRef~matchesDestructuringPattern(binding))
 
-bindingToAnonymousBlock(binding, body, discriminantRef) ->
-  t = getTypes()
-  newBody = toBlockStatement(body)
-  // const <binding> = _ref
-  loc = getLoc(binding)
-  newBody.body.unshift(
-    buildAtLoc(loc, t.variableDeclaration, "const", [
-      buildAtLoc(loc, t.variableDeclarator, binding, discriminantRef)
-    ])
+  And(conditions)
+
+transformBoundConsequent(mtch, binding, consequent) ->
+  block = toBlockStatement(consequent)
+  block.body.unshift(
+    t.variableDeclaration("const", [
+      t.variableDeclarator(binding, mtch.discriminantRef)~atNode(binding)
+    ])~atNode(binding)
   )
-  newBody
+  block
 
-createMatchConsequent(casePath, discriminantRef) ->
-  caseNode = casePath.node
-  match caseNode:
-    | .binding:
-      { binding, consequent } = caseNode
-      bindingToAnonymousBlock(binding, consequent, discriminantRef)
-    | else:
-      { consequent } = caseNode
-      toStatement(consequent)
+transformMatchConsequent(mtch, c) ->
+  { binding, consequent } = c
+  if binding:
+    mtch~transformBoundConsequent(binding, consequent)
+  else:
+    consequent~toStatement()
 
-createMatchContinuation(idx, matchTransformationState) ->
-  t = getTypes()
-  { matchPath, cases, discriminantRef } = matchTransformationState
-
-  if idx >= cases.length:
-    // Don't make empty else clauses.
-    return if idx > 0:
-      null
-    else:
-      buildAtLoc(span(getLoc(matchPath.node), -1), t.emptyStatement)
-
-  c = cases[idx]
-  casePath = matchPath.get(`cases.${idx}`)
-
-  consequent = createMatchConsequent(casePath, discriminantRef)
-  if (c.test?.type === "MatchElse") return consequent
-  test = createMatchTest(casePath, matchTransformationState)
-  continuation = createMatchContinuation(idx + 1, matchTransformationState)
-
-  buildAtLoc(getLoc(casePath.node), t.ifStatement, test, consequent, continuation)
-
-export transformMatchExpression(path) ->
-  t = getTypes()
-
-  node = path.node
-  originalDiscriminant = node.discriminant
-  node.type = "MatchStatement"
-
-  argRef = path.scope.generateUidIdentifier("it")
-  placeAtLoc(argRef, span(getLoc(node), 1))
-  node.discriminant = argRef
-
-  surroundingLoc = getLoc(node)
-
-  // Transform to IIFE wrapping MatchStatement.
-  path.replaceWith(
-    buildAtLoc(surroundingLoc, t.callExpression,
-      buildAtLoc(surroundingLoc, t.arrowFunctionExpression,
-        [argRef],
-        buildAtLoc(surroundingLoc, t.blockStatement, [node])
-      )
-      [originalDiscriminant]
-    )
-  )
-
-export transformMatchStatement(path) ->
-  t = getTypes()
-  node = path.node
-
-  { ref, declarator, isComplex } = undeclaredRef(path, node.discriminant, "it")
-  if isComplex:
-    path.insertBefore(
-      buildAtLoc(getLoc(declarator), t.variableDeclaration, "const", [declarator])
-    )
-
-  matchTransformationState = {
-    matchPath: path
-    discriminantRef: ref
-    cases: node.cases
+transformMatchCase(mtch, c) ->
+  {
+    test: if c.test?.type != "MatchElse": mtch~transformMatchTest(c)
+    consequent: mtch~transformMatchConsequent(c)
   }
 
-  path.replaceWith(createMatchContinuation(0, matchTransformationState))
+transformMatchCases(mtch, [{node: c}, ...rest]) ->
+  { test, consequent } = mtch~transformMatchCase(c)
+
+  if rest.length > 0:
+    loc = getSurroundingLoc([c, mtch.lastCase])
+    t.ifStatement(test, consequent, mtch~transformMatchCases(rest))~atLoc(loc)
+  elif test:
+    t.ifStatement(test, consequent)~atNode(c)
+  else:
+    consequent
+
+// Computed values needed in recursive descent.
+getMatchInfo(path, discriminantRef) ->
+  { node } = path
+  { path, node, discriminantRef, lastCase: node.cases[node.cases.length - 1] }
+
+export transformMatchExpression(path) ->
+  node = path.node
+  { discriminant, alias = t.identifier("it")~atLoc(node~getLoc()~span(1)) } = node
+
+  matchBody = getMatchInfo(path, alias)~transformMatchCases(path.get("cases"))
+
+  // Wrap in IIFE
+  iife = t.callExpression(
+    t.arrowFunctionExpression(
+      [alias], t.blockStatement([matchBody])~atNode(node)
+    )~atNode(node)
+    [discriminant]
+  )~atNode(node)
+
+  path.replaceWith(iife)
+
+scopedReplace(path, replaced, replacement) ->
+  targetScope = path.scope
+  targetName = replaced.name
+
+  path.traverse({
+    Identifier(idPath): void ->
+      if idPath.scope == targetScope and idPath.node.name == targetName:
+        idPath.replaceWith(replacement)
+
+    MatchStatement(path): void -> path.skip()
+  })
+
+export transformMatchStatement(path) ->
+  node = path.node
+  { discriminant, alias = t.identifier("it")~atLoc(node~getLoc()~span(1)) } = node
+
+  if discriminant~isa("Identifier"):
+    path~scopedReplace(alias, discriminant)
+    path.replaceWith(
+      getMatchInfo(path, discriminant)~transformMatchCases(path.get("cases"))
+    )
+  else:
+    path.replaceWith(
+      t.blockStatement([
+        t.variableDeclaration("const", [
+          t.variableDeclarator(alias, discriminant)~atNode(discriminant)
+        ])~atNode(discriminant)
+        getMatchInfo(path, alias)~transformMatchCases(path.get("cases"))
+      ])~atNode(node)
+    )

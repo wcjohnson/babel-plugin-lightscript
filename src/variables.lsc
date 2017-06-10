@@ -7,3 +7,17 @@ export getShadowingIdentifiers(declarationPath) ->
     for val id in declarationPath.get(`declarations.${i}`).getBindingIdentifiers():
       if declarationPath.scope.parent.hasBinding(id.name): id
   ]
+
+// Check if a path contains a reference to an identifier
+export containsReferencedIdentifier(path, identifier) ->
+  let result = false
+  { name: identifierName } = identifier
+
+  path.traverse({
+    ReferencedIdentifier(refPath): void ->
+      if refPath.node.name == identifierName:
+        now result = true
+        refPath.stop()
+  })
+
+  result

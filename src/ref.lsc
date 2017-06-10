@@ -1,4 +1,4 @@
-import is from './is'
+import { isa } from './is'
 import { getTypes } from './babelInstance'
 
 import getLoc from "ast-loc-utils/lib/getLoc"
@@ -7,7 +7,7 @@ import placeAtLoc from 'ast-loc-utils/lib/placeAtLoc'
 import span from 'ast-loc-utils/lib/span'
 
 export isSimple(refTarget) ->
-  is("Identifier", refTarget) or is("ThisExpression", refTarget)
+  refTarget~isa("Identifier") or refTarget~isa("ThisExpression")
 
 // Hoist a ref up to the enclosing scope if needed.
 export hoistRef(path, refTarget, varName = "ref") ->

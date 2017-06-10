@@ -1,8 +1,8 @@
 import x from "y"
 
 match z:
-  | [w]: "1"
+  | with [w]: "1"
 
 match a:
-  | [b]: "c"
-  | {d}: "e"
+  | with [b]: "c"
+  | with {d}: "e"

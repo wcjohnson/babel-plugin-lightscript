@@ -1,5 +1,5 @@
 match x {
   | 1: true
-  | ~test() with { x }: { x }
+  | it~test() with { x }: { x }
   | else: false
 }
