@@ -82,21 +82,25 @@ export matchesObjectPattern(obj, objectPattern) ->
 
   // _hasProps(_obj, ...)
   conditions = [obj~HasProps(objectPattern, [
-    for elem { key, value } in properties:
-      if (not value~isa("AssignmentPattern") and key~isa("Identifier")):
-        t.stringLiteral(key.name)~atNode(key)
+    for elem property in properties:
+      if property~isa("ObjectProperty"):
+        { key, value } = property
+        if (not value~isa("AssignmentPattern") and key~isa("Identifier")):
+          t.stringLiteral(key.name)~atNode(key)
   ])]
 
   // Conditions for nested patterns
-  nestedConditions = [for elem { key, value } in properties:
-    match value:
-      | .type == "AssignmentPattern" and isDestructuringPattern(.left):
-        Or(
-          Not(key~In(obj))
-          obj~Dot(key)~matchesDestructuringPattern(value.left)
-        )
-      | ~isDestructuringPattern():
-        obj~Dot(key)~matchesDestructuringPattern(value)
+  nestedConditions = [for elem property in properties:
+    if property~isa("ObjectProperty"):
+      { key, value } = property
+      match value:
+        | .type == "AssignmentPattern" and isDestructuringPattern(.left):
+          Or(
+            Not(key~In(obj))
+            obj~Dot(key)~matchesDestructuringPattern(value.left)
+          )
+        | ~isDestructuringPattern():
+          obj~Dot(key)~matchesDestructuringPattern(value)
   ]
 
   And(conditions.concat(nestedConditions))
@@ -115,6 +119,7 @@ export toRestructureExpressionForArrayPattern(pattern) ->
     [for elem element in pattern.elements:
       match element:
         | ~isa("AssignmentPattern"): element.left~maybeToRestructureExpression()
+        | ~isa("RestElement"): t.spreadElement(element.argument)~atNode(element)
         | else: element~maybeToRestructureExpression()
     ]
   )~atNode(pattern)
@@ -128,15 +133,17 @@ restructureObjAssignment(assign, defaultKey) ->
 export toRestructureExpressionForObjectPattern(pattern) ->
   t.objectExpression(
     [for elem property in pattern.properties:
-      match property.value:
-        | ~isDestructuringPattern():
+      match property:
+        | ~isa("RestProperty"):
+          t.spreadProperty(property.argument)~atNode(property)
+        | .value~isDestructuringPattern():
           t.objectProperty(
             property.key
             property.value~toRestructureExpression()
           )~atNode(property)
-        | ~isa("AssignmentPattern"):
+        | .value~isa("AssignmentPattern"):
           property.value~restructureObjAssignment(property.key)~atNode(property)
-        | ~isa("Identifier"):
+        | .value~isa("Identifier"):
           t.objectProperty(property.value, property.value, false, true)~atNode(property)
     ]
   )~atNode(pattern)

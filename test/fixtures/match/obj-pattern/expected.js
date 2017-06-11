@@ -18,4 +18,7 @@ if (_hasProps(x, "a")) {
 } else if (_hasProps(x) && (!("a" in x) || _hasProps(x.a, "b") && _hasProps(x.a.b, "c"))) {
   const { a: { b: { c } } = otherObj } = x;
   c;
-} //TODO: test `| { a, ...b }: b`
+} else if (_hasProps(x, "a")) {
+  const { a, ...b } = x;
+  b;
+}

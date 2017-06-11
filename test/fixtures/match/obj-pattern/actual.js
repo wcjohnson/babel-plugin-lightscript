@@ -11,4 +11,5 @@ match x:
     a + c
   | with { a: { b: { c } } = otherObj }:
     c
-  //TODO: test `| { a, ...b }: b`
+  | with { a, ...b }:
+    b
