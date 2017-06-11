@@ -379,9 +379,14 @@ export default function (babel) {
 
       opts.parserOpts = opts.parserOpts || {};
       opts.parserOpts.parser = parse;
-      parserOpts.plugins.unshift("lightscript");
+      parserOpts.parser = parse;
+
+      plugins = opts.parserOpts.plugins or []
+      plugins.unshift("lightscript")
       // TODO: allow configuration options to disable these, as they slow down parsing
-      parserOpts.plugins.push("jsx", "flow");
+      plugins.push("jsx", "flow")
+
+      parserOpts.plugins = plugins
     },
 
     visitor: {
