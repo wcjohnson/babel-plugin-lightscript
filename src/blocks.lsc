@@ -57,3 +57,9 @@ export blockToExpression(path) ->
       node.expression
     | else:
       node
+
+
+export getScopeParent(path) ->
+  path.findParent((path) ->
+    path.isFunction() or path.isBlockStatement() or path.isProgram()
+  )
