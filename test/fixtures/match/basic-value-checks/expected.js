@@ -7,9 +7,9 @@ if (it === 1 || it === 0.1 || it === 0x11 || it === +1 || it === -1) {
   it;
 } else if (/\s+/.test(it)) {
   it;
-} else if (Number || Boolean || String) {
+} else if (typeof it === "number" || typeof it === "boolean" || typeof it === "string") {
   it;
-} else if (Array || Object || Map || Foo) {
+} else if (Array.isArray(it) || it instanceof Object || it instanceof Map || it instanceof Foo) {
   it;
 } else if (it === null || it === undefined) {
   it;

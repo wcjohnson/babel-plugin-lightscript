@@ -19,6 +19,47 @@ isSignedNumber(node) ->
   (node.operator == "+" or node.operator == "-") and
   node.argument.type == "NumericLiteral"
 
+looksLikeClassName(id) ->
+  { name } = id
+  if name[0].toUpperCase() == name[0]:
+    if name.length == 1: true
+    elif name.toUpperCase() == name: false
+    else: true
+  else: false
+
+isSimpleMemberExpression(node) ->
+  node~isa("MemberExpression") and
+  (not node.computed) and
+  (node.object~isa("Identifier") or node.object~isSimpleMemberExpression())
+
+isClassMatchable(node) ->
+  (node~isa("Identifier") and node~looksLikeClassName()) or
+  (node~isSimpleMemberExpression() and node.property~looksLikeClassName())
+
+hasTypeof(ref, typeName, loc) ->
+  t.binaryExpression("==="
+    t.unaryExpression("typeof", ref)~atLoc(loc)
+    t.stringLiteral(typeName)~atLoc(loc)
+  )~atLoc(loc)
+
+createClassMatchCondition(node, discriminantRef) ->
+  name = if node~isa("MemberExpression"): node.property.name else: node.name
+
+  match name:
+    | "Number": discriminantRef~hasTypeof("number", node~getLoc())
+    | "String": discriminantRef~hasTypeof("string", node~getLoc())
+    | "Boolean": discriminantRef~hasTypeof("boolean", node~getLoc())
+    | "Array":
+      t.callExpression(
+        t.memberExpression(
+          t.identifier("Array")~atNode(node)
+          t.identifier("isArray")~atNode(node)
+        )~atNode(node)
+        [discriminantRef]
+      )~atNode(node)
+    | else:
+      t.binaryExpression("instanceof", discriminantRef, node)~atNode(node)
+
 createMatchTestReplacement(path, discriminantRef) ->
   node = path.node
   match node:
@@ -45,6 +86,8 @@ createMatchTestReplacement(path, discriminantRef) ->
         "To match against a destructuring pattern, " +
         "use `with` (eg: `| with { foo, bar }: foo + bar`)."
       )
+    | ~isClassMatchable():
+      node~createClassMatchCondition(discriminantRef)
     | else:
       node
 
