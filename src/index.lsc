@@ -20,13 +20,30 @@ import { transformForInArrayStatement, transformForInObjectStatement } from "./f
 import { resetHelpers } from "./helpers";
 import { initializeStdlib, markIdentifier, insertImports } from "./stdlib";
 
+getParserOpts(pluginOpts, initialParserOpts) ->
+  parserOpts = initialParserOpts or {}
+  parserOpts.parser = parser.parse
+
+  parserOpts.plugins = parserOpts.plugins or []
+  plugins = parserOpts.plugins
+
+  plugins.unshift("lightscript")
+  // TODO: allow configuration options to disable these, as they slow down parsing
+  plugins.push("jsx", "flow", "objectRestSpread")
+  plugins.push("safeCallExpression", "existentialExpression")
+
+  if pluginOpts?.features?.bangCall: plugins.push("bangCall")
+
+  parserOpts
+
 // TODO: generalize this
 export getMetadata() ->
   {
-    parser,
-    name: packageMetadata.name,
-    version: packageMetadata.version,
-    fqn: packageMetadata.name + "@" + packageMetadata.version,
+    parser
+    getParserOpts
+    name: packageMetadata.name
+    version: packageMetadata.version
+    fqn: packageMetadata.name + "@" + packageMetadata.version
     features: {
       "bangCall": {}
     }
@@ -414,21 +431,13 @@ Lightscript(babel) ->
     manipulateOptions(opts, parserOpts, file) {
       if (!shouldParseAsLightScript(file)) return
 
-      pluginOpts = opts~locatePluginOptions(plugin)
+      pluginOpts = locatePluginOptions(opts, plugin)
 
-      opts.parserOpts = opts.parserOpts || {};
-      opts.parserOpts.parser = parser.parse;
-      parserOpts.parser = parser.parse;
-
-      plugins = opts.parserOpts.plugins or []
-      plugins.unshift("lightscript")
-      // TODO: allow configuration options to disable these, as they slow down parsing
-      plugins.push("jsx", "flow", "objectRestSpread")
-      plugins.push("safeCallExpression", "existentialExpression")
-
-      if pluginOpts?.features?.bangCall: plugins.push("bangCall")
-
-      parserOpts.plugins = plugins
+      // Set parser to LightScript mode
+      opts.parserOpts = opts.parserOpts or {}
+      nextParserOpts = getParserOpts(pluginOpts, opts.parserOpts)
+      parserOpts.parse = nextParserOpts.parse
+      parserOpts.plugins = nextParserOpts.plugins
     },
 
     visitor
