@@ -1,4 +1,5 @@
-import { parse } from "@oigroup/babylon-lightscript";
+import * as parser from "@oigroup/babylon-lightscript";
+import packageMetadata from "../package.json";
 
 import { setBabel } from "./babelInstance";
 import is from "./is";
@@ -19,7 +20,39 @@ import { transformForInArrayStatement, transformForInObjectStatement } from "./f
 import { resetHelpers } from "./helpers";
 import { initializeStdlib, markIdentifier, insertImports } from "./stdlib";
 
-export default function (babel) {
+// TODO: generalize this
+export getMetadata() ->
+  {
+    parser,
+    name: packageMetadata.name,
+    version: packageMetadata.version,
+    fqn: packageMetadata.name + "@" + packageMetadata.version,
+    features: {
+      "bangCall": {}
+    }
+  }
+
+// Attempt to determine whether a post-processed Babel plugin is this
+// plugin. This is necessary because Babel doesn't specify the individual
+// plugin configuration during manipulateOptions, only the global configuration.
+// But we need the local plugin config there to enable parser flags.
+// EXTREMELY hackish.
+isMe(entry, thisPlugin) ->
+  entry.manipulateOptions == thisPlugin.manipulateOptions
+
+locatePluginOptions(opts, thisPlugin) ->
+  plugins = opts?.plugins
+  if not plugins: return {}
+
+  for elem plugin in plugins:
+    if Array.isArray(plugin):
+      if isMe(plugin[0], thisPlugin): return plugin[1]
+    else:
+      if isMe(plugin, thisPlugin): return {}
+
+  {}
+
+Lightscript(babel) ->
   const { types: t } = babel;
   setBabel(babel);
 
@@ -373,25 +406,34 @@ export default function (babel) {
     stdlib~insertImports(path)
   }
 
-  return {
+  visitor = {
+    Program
+  }
+
+  plugin = {
     manipulateOptions(opts, parserOpts, file) {
-      if (!shouldParseAsLightScript(file)) return;
+      if (!shouldParseAsLightScript(file)) return
+
+      pluginOpts = opts~locatePluginOptions(plugin)
 
       opts.parserOpts = opts.parserOpts || {};
-      opts.parserOpts.parser = parse;
-      parserOpts.parser = parse;
+      opts.parserOpts.parser = parser.parse;
+      parserOpts.parser = parser.parse;
 
       plugins = opts.parserOpts.plugins or []
       plugins.unshift("lightscript")
       // TODO: allow configuration options to disable these, as they slow down parsing
-      plugins.push("jsx", "flow")
+      plugins.push("jsx", "flow", "objectRestSpread")
+      plugins.push("safeCallExpression", "existentialExpression")
+
+      if pluginOpts?.features?.bangCall: plugins.push("bangCall")
 
       parserOpts.plugins = plugins
     },
 
-    visitor: {
-      Program,
-    },
+    visitor
+  }
 
-  };
-}
+  plugin
+
+export default Lightscript
