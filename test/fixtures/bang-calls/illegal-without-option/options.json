@@ -1,9 +1,7 @@
 {
   "plugins": [
     ["lightscript", {
-      "features": {
-        "bangCall": false
-      }
+      "bangCall": false
     }]
   ],
   "throws": "Unexpected token, expected ; (1:1)"

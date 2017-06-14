@@ -9,8 +9,19 @@ export getMetadata() ->
     name: packageMetadata.name
     version: packageMetadata.version
     fqn: packageMetadata.name + "@" + packageMetadata.version
-    features: {
-      "bangCall": {}
+    options: {
+      stdlib: {
+        description: "Configure the LightScript standard library"
+      }
+      bangCall: {
+        description: "Call functions with commaless syntax using `!`"
+        valueType: "boolean"
+        stage: "strawman"
+      }
+      noEnforcedSubscriptIndentation: {
+        description: "Do not enforce indentation for subscripts on subsequent lines."
+        valueType: "boolean"
+      }
     }
   }
 
@@ -26,7 +37,8 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
   plugins.push("jsx", "flow", "objectRestSpread")
   plugins.push("safeCallExpression", "existentialExpression")
 
-  if pluginOpts?.features?.bangCall: plugins.push("bangCall")
+  if pluginOpts?.bangCall: plugins.push("bangCall")
+  if not pluginOpts?.noEnforcedSubscriptIndentation: plugins.push("enforceSubscriptIndentation")
 
   parserOpts
 

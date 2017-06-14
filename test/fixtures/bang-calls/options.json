@@ -1,9 +1,7 @@
 {
   "plugins": [
     ["lightscript", {
-      "features": {
-        "bangCall": true
-      }
+      "bangCall": true
     }]
   ]
 }
