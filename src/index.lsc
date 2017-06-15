@@ -16,7 +16,7 @@ import { getInlinedOperatorsEnabled, replaceWithInlinedOperator } from "./inline
 import { transformForInArrayStatement, transformForInObjectStatement } from "./for";
 import { resetHelpers } from "./helpers";
 import { initializeStdlib, markIdentifier, insertImports } from "./stdlib";
-import { locatePluginOpts, getParserOpts } from './config'
+import { locatePluginOpts, getParserOpts, setOptionsForCurrentRun } from './config'
 
 Lightscript(babel) ->
   const { types: t } = babel;
@@ -89,6 +89,7 @@ Lightscript(babel) ->
   function Program(path, state): void {
     if (!shouldParseAsLightScript(state.file)) return;
 
+    setOptionsForCurrentRun(state.opts);
     const stdlib = initializeStdlib(state.opts);
     const inlinedOperatorsEnabled = getInlinedOperatorsEnabled(state.opts);
 

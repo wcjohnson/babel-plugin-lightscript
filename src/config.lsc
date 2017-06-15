@@ -1,22 +1,35 @@
 import * as parser from "@oigroup/babylon-lightscript";
 import packageMetadata from "../package.json";
 
-// TODO: generalize this
 export getMetadata() ->
   {
     parser
     getParserOpts
     name: packageMetadata.name
     version: packageMetadata.version
-    fqn: packageMetadata.name + "@" + packageMetadata.version
     options: {
       stdlib: {
         description: "Configure the LightScript standard library"
       }
+      patternMatching: {
+        description: "Test and branch using `match` keyword"
+        valueType: "option"
+        options: ["disabled", "v3"]
+        defaultValue: "v3"
+        stage: "1"
+      }
       bangCall: {
         description: "Call functions with commaless syntax using `!`"
         valueType: "boolean"
-        stage: "strawman"
+        stage: "0"
+      }
+      safeCall: {
+        description: "Call a function using `?` to check callability first"
+        valueType: "boolean"
+      }
+      existential: {
+        description: "Postfix `?` checks that an expression is not loose-equal to `null`"
+        valueType: "boolean"
       }
       noEnforcedSubscriptIndentation: {
         description: "Do not enforce indentation for subscripts on subsequent lines."
@@ -35,12 +48,25 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
   plugins.unshift("lightscript")
   // TODO: allow configuration options to disable these, as they slow down parsing
   plugins.push("jsx", "flow", "objectRestSpread")
-  plugins.push("safeCallExpression", "existentialExpression")
 
+  if pluginOpts?.safeCall: plugins.push("safeCallExpression")
+  if pluginOpts?.existential: plugins.push("existentialExpression")
   if pluginOpts?.bangCall: plugins.push("bangCall")
   if not pluginOpts?.noEnforcedSubscriptIndentation: plugins.push("enforceSubscriptIndentation")
 
+  patternMatchingVersion = pluginOpts?.patternMatching or "v3"
+  if patternMatchingVersion != "disabled":
+    plugins.push(`match_${patternMatchingVersion}`)
+
   parserOpts
+
+// Inject options for current run to avoid deep argument passing
+let currentRunOpts = {}
+
+export setOptionsForCurrentRun(opts) ->
+  now currentRunOpts = opts
+
+export getOptionsForCurrentRun() -> currentRunOpts
 
 // Attempt to determine whether a post-processed Babel plugin is this
 // plugin. This is necessary because Babel doesn't specify the individual
