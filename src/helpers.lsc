@@ -12,6 +12,28 @@ insertAfterImports(path, node): void ->
   for elem p in path.get("body"):
     if not p~isa("ImportDeclaration"):
       p.insertBefore(node)
+      // XXX: enabling the below logging command while running the
+      // helpers/scope fixture with the following `hasProps` helper:
+      //
+      // function(obj) {
+      //   var i = arguments.length;
+      //   if (obj == null) return false;
+      //   if (typeof obj !== "object" && typeof obj !== "function") return false;
+      //   while (--i > 0) if (!(arguments[i] in obj)) return false;
+      //   return true;
+      // }
+      //
+      // ...reveals a severe scope leak bug in Babel wherein the `var i`
+      // declaration here gets coalesced with the `const i` declaration
+      // from the enclosing scope. This causes a false constant violation to
+      // be recorded here, and the es2015-check-constants plugin will
+      // then crash on compiled code.
+      //
+      // I am working around this bug by introducing a new block scope using
+      // `for` in the helper, but it should definitely be reported upstream
+      // to babel.
+
+      // p.getPrevSibling().scope.dump()
       break
 
 export getHelper(key, makeHelper) ->
@@ -61,8 +83,8 @@ predefinedHelpers = {
 (function(obj) {
   if (obj == null) return false;
   if (typeof obj !== "object" && typeof obj !== "function") return false;
-  var i = arguments.length;
-  while (--i > 0) { if (!(arguments[i] in obj)) return false; }
+  for (var i = arguments.length - 1; i > 0; i--)
+    if (!(arguments[i] in obj)) return false;
   return true;
 })
     `)()

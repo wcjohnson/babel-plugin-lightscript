@@ -2,7 +2,14 @@ function _hasLength(arr, minLength, maxLength) { return arr != null && typeof ar
 
 function _hasProps(obj) { if (obj == null) return false; if (typeof obj !== "object" && typeof obj !== "function") return false; for (var i = arguments.length - 1; i > 0; i--) if (!(arguments[i] in obj)) return false; return true; }
 
-if (_hasProps(x, "a", "aa") && _hasLength(x.aa, 2) && _hasProps(x.aa[1])) {
-  const { a, aa: [b, { c = 1 }, ...d] } = x;
-  d.concat(a + b + c);
+const i = 1;
+const obj = {};
+const minLength = 1;
+const maxLength = 3;
+const arr = [];
+
+if (_hasProps(x, "z")) {
+  const { z } = x;z;
+} else if (_hasLength(x, 1, 1)) {
+  const [w] = x;w;
 }
