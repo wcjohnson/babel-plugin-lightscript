@@ -8,7 +8,8 @@ import {
 import { blockToExpression, toBlockStatement } from "./blocks";
 import { getShadowingIdentifiers } from "./variables";
 import { ensureConstructor, bindMethodsInConstructor } from "./classes";
-import { transformMatchExpression, transformMatchStatement } from "./match";
+import * as match_v3 from "./match";
+import * as match_v4 from "./match_v4"
 import { replaceWithSafeCall } from "./safeCall";
 import { transformArrayComprehension, transformObjectComprehension } from "./comprehension";
 import { transformExistentialExpression } from "./existential";
@@ -88,6 +89,8 @@ Lightscript(babel) ->
   // (and avoid traversing any of their output)
   function Program(path, state): void {
     if (!shouldParseAsLightScript(state.file)) return;
+
+    opts = state.opts;
 
     setOptionsForCurrentRun(state.opts);
     const stdlib = initializeStdlib(state.opts);
@@ -366,8 +369,15 @@ Lightscript(babel) ->
         transformExistentialExpression(path);
       },
 
-      MatchExpression(path): void -> transformMatchExpression(path)
-      MatchStatement(path): void -> transformMatchStatement(path)
+      MatchExpression(path): void ->
+        match opts.patternMatching:
+          | "v4": match_v4.transformMatchExpression(path)
+          | else: match_v3.transformMatchExpression(path)
+
+      MatchStatement(path): void ->
+        match opts.patternMatching:
+          | "v4": match_v4.transformMatchStatement(path)
+          | else: match_v3.transformMatchStatement(path)
     });
 
     stdlib~insertImports(path)

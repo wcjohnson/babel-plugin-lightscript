@@ -89,6 +89,13 @@ predefinedHelpers = {
 })
     `)()
 
+  matches(b) ->
+    b.template(`
+(function(discriminant, target) {
+  // Polyfill goes here
+})
+    `)()
+
 }
 
 export helper(name) ->

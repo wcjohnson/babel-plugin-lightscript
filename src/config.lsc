@@ -14,7 +14,7 @@ export getMetadata() ->
       patternMatching: {
         description: "Test and branch using `match` keyword"
         valueType: "option"
-        options: ["disabled", "v3"]
+        options: ["disabled", "v3", "v4"]
         defaultValue: "v3"
         stage: "1"
       }

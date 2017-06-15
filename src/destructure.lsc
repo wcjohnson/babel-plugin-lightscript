@@ -1,5 +1,4 @@
-// Generate a LogicalExpression that asserts a ref is compatible with a
-// destructuring pattern.
+// Tools for dealing with destructuring patterns.
 
 import t from './lightscriptTypes'
 import { createAndExpression as And, createOrExpression as Or, createNotExpression as Not } from './logical'
@@ -147,3 +146,20 @@ export toRestructureExpressionForObjectPattern(pattern) ->
           t.objectProperty(property.value, property.value, false, true)~atNode(property)
     ]
   )~atNode(pattern)
+
+////////// Generate accessor expressions for destructuring patterns
+export accessors(node, nodeAccessor, accum) ->
+  match node:
+    | ~isa("Identifier"): accum[node.name] = nodeAccessor
+    | ~isa("ArrayPattern"): node~accessorsForArrayPattern(nodeAccessor, accum)
+    | ~isa("ObjectPattern"): node~accessorsForObjectPattern(nodeAccessor, accum)
+    | ~isa("AssignmentPattern"): node.left~accessors(nodeAccessor, accum)
+
+accessorsForArrayPattern(pattern, accessor, accum) ->
+  for idx i, elem element in pattern.elements:
+    element~accessors(t.memberExpression(accessor, i, true), accum)
+
+accessorsForObjectPattern(pattern, accessor, accum) ->
+  for elem { key, value } in pattern.properties:
+    if key~isa("Identifier"):
+      value~accessors(t.memberExpression(accessor, key), accum)
