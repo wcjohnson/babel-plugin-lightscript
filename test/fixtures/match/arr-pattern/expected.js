@@ -1,4 +1,4 @@
-function _hasLength(arr, minLength, maxLength) { return arr != null && typeof arr !== "function" && (maxLength === undefined ? minLength ? arr.length >= minLength : arr.length >= 0 : arr.length >= minLength && arr.length <= maxLength); }
+const _hasLength = require('@oigroup/lightscript-runtime/hasLength');
 
 if (_hasLength(x)) {
   const [] = x;

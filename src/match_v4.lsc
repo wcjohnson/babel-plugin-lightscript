@@ -21,10 +21,10 @@ _traverse(src, visit) ->
     val = src[key]
     if val:
       if val.type:
-        visit(val)
+        _traverse(val, visit)
       elif Array.isArray(val):
         for elem e in val:
-          visit(e)
+          _traverse(e, visit)
 
   src
 

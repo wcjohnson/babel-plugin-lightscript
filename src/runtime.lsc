@@ -20,7 +20,7 @@ export runtime(method) ->
   { runtime: {symbols, imports}, programPath } = getCompilerState()
   if not symbols[method]:
     symbols[method] = programPath.scope.generateUidIdentifier(method)
-    imports~addImport("lightscript-runtime/" + method, symbols[method].name)
+    imports~addImport("@oigroup/lightscript-runtime/" + method, symbols[method].name)
   
   symbols[method]
 
