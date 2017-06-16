@@ -1,4 +1,4 @@
-import t from './lightscriptTypes'
+import t from './types'
 import atLoc from 'ast-loc-utils/lib/placeAtLoc'
 
 // Get all identifiers in the given `VariableDeclaration` that would shadow

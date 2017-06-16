@@ -1,4 +1,4 @@
-import t from './lightscriptTypes'
+import t from './types'
 
 inlinedOperator = {
   looseEq: (t, args) => t.binaryExpression("==", args[0], args[1])

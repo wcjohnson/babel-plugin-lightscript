@@ -1,6 +1,6 @@
 // Tools for dealing with destructuring patterns.
 
-import t from './lightscriptTypes'
+import t from './types'
 import { createAndExpression as And, createOrExpression as Or, createNotExpression as Not } from './logical'
 import { runtime } from './runtime'
 import { isa } from './is'

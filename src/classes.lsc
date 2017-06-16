@@ -1,5 +1,5 @@
 import is from './is'
-import t from './lightscriptTypes'
+import t from './types'
 
 // Check if the given path or any of its descendants contains a `super()`
 // call expression.

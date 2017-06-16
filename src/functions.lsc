@@ -1,6 +1,6 @@
 import is, { isa } from './is'
 import { transformTails } from './tails'
-import t from './lightscriptTypes'
+import t from './types'
 import { toBlockStatement } from './blocks'
 
 import getLoc from "ast-loc-utils/lib/getLoc";

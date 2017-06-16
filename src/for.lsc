@@ -1,4 +1,4 @@
-import t from './lightscriptTypes'
+import t from './types'
 import { ensureBlockBody } from './blocks'
 import is from './is'
 

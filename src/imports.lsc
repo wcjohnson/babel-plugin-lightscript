@@ -1,4 +1,4 @@
-import t from './lightscriptTypes'
+import t from './types'
 
 export createImports() ->
   {}

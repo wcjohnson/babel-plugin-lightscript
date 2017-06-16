@@ -1,5 +1,5 @@
 import { isa } from './is'
-import t from './lightscriptTypes'
+import t from './types'
 
 import getLoc from "ast-loc-utils/lib/getLoc"
 import buildAtLoc from "ast-loc-utils/lib/buildAtLoc"

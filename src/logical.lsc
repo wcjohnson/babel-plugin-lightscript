@@ -1,4 +1,4 @@
-import t from './lightscriptTypes'
+import t from './types'
 import getSurroundingLoc from 'ast-loc-utils/lib/getSurroundingLoc'
 import atLoc from 'ast-loc-utils/lib/placeAtLoc'
 import atNode from 'ast-loc-utils/lib/placeAtNode'
