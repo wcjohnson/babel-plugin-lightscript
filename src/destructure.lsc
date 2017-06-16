@@ -2,7 +2,7 @@
 
 import t from './lightscriptTypes'
 import { createAndExpression as And, createOrExpression as Or, createNotExpression as Not } from './logical'
-import { helper } from './helpers'
+import { runtime } from './runtime'
 import { isa } from './is'
 import atNode from 'ast-loc-utils/lib/placeAtNode'
 
@@ -31,7 +31,7 @@ HasLength(array, min, max, patternNode) ->
     [ array ]
 
   t.callExpression(
-    helper('hasLength')~t.clone()~atNode(patternNode)
+    runtime('hasLength')~t.clone()~atNode(patternNode)
     args
   )
 
@@ -72,7 +72,7 @@ HasProps(obj, patternNode, props) ->
   args = props.slice()
   args.unshift(obj)
   t.callExpression(
-    helper('hasProps')~t.clone()~atNode(patternNode)
+    runtime('hasProps')~t.clone()~atNode(patternNode)
     args
   )~atNode(patternNode)
 

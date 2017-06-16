@@ -5,6 +5,7 @@ import { undeclaredRef } from './ref'
 import { matchesDestructuringPattern, accessors } from './destructure'
 import { createAndExpression as And, createOrExpression as Or } from './logical'
 import { helper } from './helpers'
+import { runtime } from './runtime'
 
 import getLoc from 'ast-loc-utils/lib/getLoc'
 import atLoc from 'ast-loc-utils/lib/placeAtLoc'
@@ -89,8 +90,8 @@ transformAtom(mtch, path) ->
       mtch~transformPredicate(path)
     | else:
       t.callExpression(
-        helper('matches')~t.clone()~atNode(node)
-        [ discriminantRef, node ]
+        runtime('isMatch')~t.clone()~atNode(node)
+        [ node, discriminantRef ]
       )~atNode(node)
 
 transformAtoms(mtch, atomPaths) ->

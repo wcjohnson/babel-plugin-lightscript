@@ -3,6 +3,8 @@ import { createImports, addImport } from './imports'
 
 runtimeMethods = {
   'isMatch': true
+  'hasLength': true
+  'hasProps': true
 }
 
 export initializeRuntime() ->

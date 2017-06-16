@@ -1,15 +1,14 @@
-function _hasProps(obj) { if (obj == null) return false; if (typeof obj !== "object" && typeof obj !== "function") return false; for (var i = arguments.length - 1; i > 0; i--) if (!(arguments[i] in obj)) return false; return true; }
+import _isMatch from "lightscript-runtime/isMatch";
+import _hasProps from "lightscript-runtime/hasProps";
 
-function _matches(discriminant, atom) { return discriminant === atom; }
-
-if (_matches(x, Atom)) {
+if (_isMatch(Atom, x)) {
   1;
 } else if (Predicate(x)) {
   2;
-} else if (preGuard && _matches(x, /regex/)) {
+} else if (preGuard && _isMatch(/regex/, x)) {
   3;
 } else if (Predicate(x) && _hasProps(x, "pattern")) {
   const { pattern } = x;4;
-} else if (Preguard && (Predicate1(x) && Predicate2(x) || _matches(x, String)) && x.x > 4) {
+} else if (Preguard && (Predicate1(x) && Predicate2(x) || _isMatch(String, x)) && x.x > 4) {
   const { x } = x;5;
 }
