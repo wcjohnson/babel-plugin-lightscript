@@ -1,5 +1,5 @@
-import t from './lightscriptTypes'
 import { getScopeParent } from './blocks'
+import { createImports, addImport, insertImports as ii } from './imports'
 
 export const everyLodashMethod = [
   "add",
@@ -330,7 +330,7 @@ export initializeStdlib(opts) ->
   {
     enabled: opts.stdlib != false
     symbols
-    imports: {}
+    imports: createImports()
     useRequire: opts.stdlib and opts.stdlib.require == true
   }
 
@@ -346,44 +346,8 @@ export markIdentifier(stdlib, path) ->
 export addImportSpecifier(stdlib, symbol) ->
   const importPath = stdlib.symbols[symbol]
   if not importPath: return
-  if not stdlib.imports[importPath]:
-    stdlib.imports[importPath] = []
-  if stdlib.imports[importPath].indexOf(symbol) < 0:
-    stdlib.imports[importPath].push(symbol)
+  stdlib.imports~addImport(importPath + '/' + symbol, symbol)
 
 export insertImports(stdlib, path) ->
-  { imports, useRequire } = stdlib
-  declarations = []
-
-  for (const importPath in imports) {
-    const specifierNames = imports[importPath];
-
-    if (useRequire) {
-      // eg; `const { map, uniq } = require('lodash');`
-      for (const specifierName of specifierNames) {
-        const importIdentifier = t.identifier(specifierName);
-
-        const requireCall = t.callExpression(t.identifier("require"), [
-          t.stringLiteral(importPath + '/' + specifierName)
-        ]);
-        const requireStmt = t.variableDeclaration("const", [
-          t.variableDeclarator(importIdentifier, requireCall),
-        ]);
-
-        declarations.push(requireStmt);
-      }
-    } else {
-      // eg; `import { map, uniq } from 'lodash';`
-      for (const specifierName of specifierNames) {
-        const importIdentifier = t.identifier(specifierName);
-        const importSpecifier = t.importDefaultSpecifier(importIdentifier);
-        const importDeclaration = t.importDeclaration(
-          [importSpecifier],
-          t.stringLiteral(importPath + '/' + specifierName)
-        );
-        declarations.push(importDeclaration);
-      }
-    }
-  }
-  path.unshiftContainer("body", declarations);
-
+  { useRequire } = stdlib
+  stdlib.imports~ii(path, useRequire)

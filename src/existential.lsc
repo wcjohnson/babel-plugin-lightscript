@@ -1,8 +1,6 @@
-import { getTypes } from './babelInstance'
+import t from './lightscriptTypes'
 
 export transformExistentialExpression(path) ->
-  t = getTypes()
-
   path.replaceWith(
     t.binaryExpression(
       "!=",

@@ -1,11 +1,10 @@
-import { getTypes } from './babelInstance'
+import t from './lightscriptTypes'
 import is, { isa } from './is'
 
 import getLoc from 'ast-loc-utils/lib/getLoc'
 import buildAtLoc from 'ast-loc-utils/lib/buildAtLoc'
 
 export toBlockStatement(body) ->
-  t = getTypes()
   bodyLoc = getLoc(body)
   match body:
     | ~isa("BlockStatement"): body
@@ -15,7 +14,6 @@ export toBlockStatement(body) ->
       ])
 
 export toStatement(body) ->
-  t = getTypes()
   match body:
     | ~isa("Expression"):
       buildAtLoc(getLoc(body), t.expressionStatement, body)
@@ -27,14 +25,12 @@ export toFunctionBody(body) ->
     | else: toBlockStatement(body)
 
 export ensureBlockBody(path) ->
-  t = getTypes()
   if !is("BlockStatement", path.node.body):
     path.get("body").replaceWith(
       buildAtLoc(getLoc(path.node.body), t.blockStatement, [path.node.body])
     );
 
 export blockToExpression(path) ->
-  t = getTypes()
   node = path.node
   match node:
     | ~isa("BlockStatement"):
@@ -57,7 +53,6 @@ export blockToExpression(path) ->
       node.expression
     | else:
       node
-
 
 export getScopeParent(path) ->
   path.findParent((path) ->

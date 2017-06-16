@@ -249,14 +249,28 @@ export registerLightscriptNodeTypes(t): void ->
   });
 
   definePluginType("MatchCase", {
-    builder: ["test", "binding", "consequent"],
-    visitor: ["test", "binding", "consequent"],
+    builder: ["outerGuard", "atoms", "binding", "assertive", "innerGuard", "consequent"],
+    visitor: ["test", "outerGuard", "atoms", "binding", "innerGuard", "consequent"],
     fields: {
+      // XXX: v3 compatibility, remove when syntax settles
       test: {
         validate: assertNodeType("Expression", "MatchElse")
-      },
+        optional: true
+      }
+      outerGuard: {
+        validate: assertNodeType("Expression", "MatchElse")
+        optional: true
+      }
+      atoms: {
+        validate: chain(assertValueType("array"), assertEach(assertNodeType("Expression")))
+        optional: true
+      }
       binding: {
         validate: assertNodeType("ArrayPattern", "ObjectPattern")
+        optional: true
+      }
+      assertive: {
+        validate: assertValueType("boolean")
         optional: true
       }
       consequent: {
@@ -268,6 +282,6 @@ export registerLightscriptNodeTypes(t): void ->
   definePluginType("MatchElse", {
   });
 
-  definePluginType("PlaceholderExpression", {
+  definePluginType("MatchPlaceholderExpression", {
     aliases: ["Expression"]
   });

@@ -1,4 +1,4 @@
-import { getTypes } from './babelInstance'
+import t from './lightscriptTypes'
 
 inlinedOperator = {
   looseEq: (t, args) => t.binaryExpression("==", args[0], args[1])
@@ -16,7 +16,6 @@ export getInlinedOperatorsEnabled(opts) ->
   not ((opts.stdlib === false) or (typeof opts.stdlib === "object" && opts.stdlib.lightscript === false))
 
 export replaceWithInlinedOperator(path, callee, args) ->
-  t = getTypes()
   if (callee.type !== "Identifier") return false
   const name = callee.name
   if (!inlinedOperator[name] || path.scope.hasBinding(name) ) return false

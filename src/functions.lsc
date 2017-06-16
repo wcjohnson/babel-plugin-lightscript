@@ -1,6 +1,6 @@
 import is, { isa } from './is'
 import { transformTails } from './tails'
-import { getTypes } from './babelInstance'
+import t from './lightscriptTypes'
 import { toBlockStatement } from './blocks'
 
 import getLoc from "ast-loc-utils/lib/getLoc";
@@ -14,7 +14,6 @@ export addImplicitReturns(functionPath) ->
   if node.kind === "constructor" or node.kind === "set": return
   if is("VoidTypeAnnotation", node.returnType?.typeAnnotation): return
 
-  t = getTypes()
   transformTails(
     functionPath.get("body")
     false
@@ -25,7 +24,6 @@ export addImplicitReturns(functionPath) ->
 // Convert any functional node (NamedArrow etc) back to a JS
 // `FunctionDeclaration` or `FunctionExpression`
 export toPlainFunction(node) ->
-  t = getTypes()
   { id, params, body, generator, async } = node;
 
   nextNode = match node:
@@ -43,7 +41,6 @@ export replaceWithPlainFunction(path) ->
 // Convert any functional node (NamedArrow etc) back to a JS arrow function
 // `ArrowFunctionExpression`
 export toArrowFunction(node) ->
-  t = getTypes()
   let { id, params, body, async } = node
 
   if (is("Statement", node)) {
@@ -65,7 +62,6 @@ export replaceWithArrowFunction(path) ->
 
 // Replace a functional node with a new node binding the function to `this`.
 export replaceWithBoundFunction(path) ->
-  t = getTypes()
   if is("Statement", path.node):
     // function f() {...}
     // f = f.bind(this)

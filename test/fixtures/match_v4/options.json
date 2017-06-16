@@ -1,0 +1,3 @@
+{
+  "plugins": [["lightscript", { "patternMatching": "v4", "useRequire": true }]]
+}
