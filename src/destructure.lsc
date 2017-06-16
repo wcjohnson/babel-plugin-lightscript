@@ -157,7 +157,7 @@ export accessors(node, nodeAccessor, accum) ->
 
 accessorsForArrayPattern(pattern, accessor, accum) ->
   for idx i, elem element in pattern.elements:
-    element~accessors(t.memberExpression(accessor, i, true), accum)
+    element~accessors(t.memberExpression(accessor, t.numericLiteral(i), true), accum)
 
 accessorsForObjectPattern(pattern, accessor, accum) ->
   for elem { key, value } in pattern.properties:

@@ -91,8 +91,8 @@ predefinedHelpers = {
 
   matches(b) ->
     b.template(`
-(function(discriminant, target) {
-  // Polyfill goes here
+(function(discriminant, atom) {
+  return discriminant === atom;
 })
     `)()
 
