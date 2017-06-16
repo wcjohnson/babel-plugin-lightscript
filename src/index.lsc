@@ -17,7 +17,7 @@ import { transformForInArrayStatement, transformForInObjectStatement } from "./f
 import { resetHelpers } from "./helpers";
 import { markIdentifier } from "./stdlib";
 import { locatePluginOpts, getParserOpts } from './config'
-import { initializeCompilerState, postprocess } from './compilerState'
+import { getFileTypeInfo, createCompilerState, initializeCompilerState, postprocess } from './compilerState'
 
 Lightscript(babel) ->
   const { types: t } = babel;
@@ -66,36 +66,22 @@ Lightscript(babel) ->
     }
   }
 
-  function shouldParseAsLightScript(file) {
-    if (!file || !file.opts || !file.opts.filename) return true;
-    const { filename } = file.opts;
-    // HACK: for lightscript-eslint, and possibly others
-    if (filename === "unknown") return true;
-    // for babel-node repl
-    if (filename === "repl") return true;
-
-    // TODO: consider "peeking" at the first line for a shebang or 'use lightscript' directive.
-    return (
-      // HACK: allow parsing .js test files in this repo.
-      // TODO: modify `babel-helper-plugin-test-runner` or something instead
-      filename.includes("test/fixtures") ||
-      filename.includes(".lsc") ||
-      filename.includes(".lsx")
-    );
-  }
-
   // traverse as top-level item so as to run before other babel plugins
   // (and avoid traversing any of their output)
   function Program(path, state): void {
-    if (!shouldParseAsLightScript(state.file)) return;
-
-    opts = state.opts;
-    compilerState = initializeCompilerState({
+    opts = state.opts
+    compilerState = createCompilerState({
       programPath: path
       babel
       opts
+      file: state.file
     })
 
+    if (!compilerState.isLightScript) return
+
+    initializeCompilerState()
+
+    // TODO: helpers -> compilerState
     resetHelpers(path);
 
     path.traverse({
@@ -125,7 +111,7 @@ Lightscript(babel) ->
           const callExpr = t.callExpression(path.node.right, args);
 
           if (
-            compilerState.inlinedOperatorsEnabled && 
+            compilerState.inlinedOperatorsEnabled &&
             replaceWithInlinedOperator(path, path.node.right, args)
           ) return;
 
@@ -375,13 +361,13 @@ Lightscript(babel) ->
 
       MatchExpression(path): void ->
         match opts.patternMatching:
-          | "v4": match_v4.transformMatchExpression(path)
-          | else: match_v3.transformMatchExpression(path)
+          | "v3": match_v3.transformMatchExpression(path)
+          | else: match_v4.transformMatchExpression(path)
 
       MatchStatement(path): void ->
         match opts.patternMatching:
-          | "v4": match_v4.transformMatchStatement(path)
-          | else: match_v3.transformMatchStatement(path)
+          | "v3": match_v3.transformMatchStatement(path)
+          | else: match_v4.transformMatchStatement(path)
     });
 
     compilerState~postprocess()
@@ -393,7 +379,8 @@ Lightscript(babel) ->
 
   plugin = {
     manipulateOptions(opts, parserOpts, file) {
-      if (!shouldParseAsLightScript(file)) return
+      fileTypeInfo = getFileTypeInfo(file)
+      if not fileTypeInfo.isLightScript: return
 
       pluginOpts = locatePluginOpts(opts, plugin)
 

@@ -16,6 +16,9 @@ let compilerState = {
   // Babel Plugin options
   opts: null
 
+  // Babel file state entry
+  file: null
+
   //// Preambles
   // stdlib state
   stdlib: null
@@ -25,6 +28,8 @@ let compilerState = {
   runtime: null
 
   inlinedOperatorsEnabled: true
+  isLightScript: true
+  isLSX: false
 }
 
 export getCompilerState() -> compilerState
@@ -33,8 +38,30 @@ export getBabel() -> compilerState.babel
 
 export getOptions() -> compilerState.opts
 
-export initializeCompilerState(initialState) ->
+export getFileTypeInfo(file) ->
+  if not file?.opts?.filename: return { isLightScript: true, isLSX: false}
+  filename = file.opts.filename
+
+  if filename.includes(".lsx"): return { isLightScript: true, isLSX: true }
+
+  if (
+    filename === "unknown" or // eslint
+    filename === "repl" or // babel-node
+    filename.includes(".lsc") or
+    filename.includes("test/fixtures")
+  ): return { isLightScript: true, isLSX: false }
+
+  return { isLightScript: false, isLSX: false }
+
+processFilename(state): void ->
+  Object.assign(state, getFileTypeInfo(state.file))
+
+export createCompilerState(initialState) ->
   now compilerState = initialState
+  processFilename(compilerState)
+  return compilerState
+
+export initializeCompilerState() ->
   { babel, opts } = compilerState
   patch(babel.types)
   registerLightscriptNodeTypes(babel.types)

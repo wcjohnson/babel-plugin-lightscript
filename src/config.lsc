@@ -15,11 +15,11 @@ export getMetadata() ->
         description: "Test and branch using `match` keyword"
         valueType: "option"
         options: ["disabled", "v3", "v4"]
-        defaultValue: "v3"
+        defaultValue: "v4"
         stage: "1"
       }
       bangCall: {
-        description: "Call functions with commaless syntax using `!`"
+        description: "Call functions with paren-free syntax using `!`"
         valueType: "boolean"
         stage: "0"
       }
@@ -39,6 +39,18 @@ export getMetadata() ->
         description: "Generate `require` rather than `import` when the compiler introduces a module."
         valueType: "boolean"
       }
+      flippedImports: {
+        description: "Allow imports via `import 'path': [specifier]` syntax."
+        valueType: "boolean"
+      }
+      disableJsx: {
+        description: "Don't parse JSX expressions."
+        valueType: "boolean"
+      }
+      disableFlow: {
+        description: "Don't parse Flow type annotations."
+        valueType: "boolean"
+      }
     }
   }
 
@@ -50,15 +62,17 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
   plugins = parserOpts.plugins
 
   plugins.unshift("lightscript")
-  // TODO: allow configuration options to disable these, as they slow down parsing
-  plugins.push("jsx", "flow", "objectRestSpread")
+  plugins.push("objectRestSpread")
 
+  if not pluginOpts?.disableJsx: plugins.push("jsx")
+  if not pluginOpts?.disableFlow: plugins.push("flow")
   if pluginOpts?.safeCall: plugins.push("safeCallExpression")
   if pluginOpts?.existential: plugins.push("existentialExpression")
   if pluginOpts?.bangCall: plugins.push("bangCall")
   if not pluginOpts?.noEnforcedSubscriptIndentation: plugins.push("enforceSubscriptIndentation")
+  if pluginOpts?.flippedImports: plugins.push("flippedImports")
 
-  patternMatchingVersion = pluginOpts?.patternMatching or "v3"
+  patternMatchingVersion = pluginOpts?.patternMatching or "v4"
   if patternMatchingVersion != "disabled":
     plugins.push(`match_${patternMatchingVersion}`)
 
