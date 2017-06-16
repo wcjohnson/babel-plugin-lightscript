@@ -1,5 +1,5 @@
 import is from './is'
-import { getTypes } from './babelInstance'
+import t from './lightscriptTypes'
 
 // Check if the given path or any of its descendants contains a `super()`
 // call expression.
@@ -29,8 +29,6 @@ export containsSuperCall(path) ->
 // - "addEmptyConstructor" to make the empty constructor
 // - "addSuperCallToConstructor" to make the supercall.
 export ensureConstructor(classPath, constructorBodyPath, withSuper = true) ->
-  t = getTypes()
-
   if not constructorBodyPath:
     emptyConstructor = t.classMethod(
       "constructor"
@@ -75,8 +73,6 @@ export ensureConstructor(classPath, constructorBodyPath, withSuper = true) ->
 // Insert code into class constructor which will autobind a list of class
 // methods at construction time.
 export bindMethodsInConstructor(classPath, constructorPath, methodIds) ->
-  t = getTypes()
-
   // `this.method = this.method.bind(this);`
   assignments = [for elem methodId in methodIds:
     t.assertOneOf(methodId, ["Identifier", "Expression"])

@@ -1,4 +1,4 @@
-import { getTypes } from './babelInstance'
+import t from './lightscriptTypes'
 import { transformTails } from './tails'
 
 validateComprehensionLoopBody(loopBodyPath) ->
@@ -21,8 +21,6 @@ validateComprehensionLoopBody(loopBodyPath) ->
   })
 
 wrapComprehensionInIife(bodyVarId, bodyVarInitializer, loopBody) ->
-  t = getTypes()
-
   t.callExpression(
     t.arrowFunctionExpression(
       []
@@ -38,7 +36,6 @@ wrapComprehensionInIife(bodyVarId, bodyVarInitializer, loopBody) ->
   )
 
 export transformArrayComprehension(path) ->
-  t = getTypes()
   validateComprehensionLoopBody(path.get("loop.body"))
 
   id = path.scope.generateUidIdentifier("arr")
@@ -56,7 +53,6 @@ export transformArrayComprehension(path) ->
   path.replaceWith(wrapComprehensionInIife(id, t.arrayExpression(), path.node.loop))
 
 export transformObjectComprehension(path) ->
-  t = getTypes()
   validateComprehensionLoopBody(path.get("loop.body"))
 
   const id = path.scope.generateUidIdentifier("obj")

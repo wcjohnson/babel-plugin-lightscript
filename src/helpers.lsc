@@ -1,4 +1,4 @@
-import { getBabel } from './babelInstance'
+import { getBabel } from './compilerState'
 import { isa } from './is'
 
 let helpers = {}

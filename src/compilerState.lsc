@@ -1,0 +1,51 @@
+import patch from './util/babelTypesPatch'
+import { registerLightscriptNodeTypes } from './lscNodeTypes'
+import { initializeStdlib } from './stdlib'
+import { initializeRuntime } from './runtime'
+import { insertImports } from './imports'
+import { getInlinedOperatorsEnabled } from './inlinedOperators'
+
+// Singleton object, unique per Program traversal, holding relevant state.
+let compilerState = {
+  // DI Babel instance. Avoid unless necessary; prefer types.lsc
+  babel: null
+
+  // Root program path
+  programPath: null
+
+  // Babel Plugin options
+  opts: null
+
+  //// Preambles
+  // stdlib state
+  stdlib: null
+  // helpers state
+  helpers: null
+  // lightscript-runtime state
+  runtime: null
+
+  inlinedOperatorsEnabled: true
+}
+
+export getCompilerState() -> compilerState
+
+export getBabel() -> compilerState.babel
+
+export getOptions() -> compilerState.opts
+
+export initializeCompilerState(initialState) ->
+  now compilerState = initialState
+  { babel, opts } = compilerState
+  patch(babel.types)
+  registerLightscriptNodeTypes(babel.types)
+
+  compilerState.stdlib = initializeStdlib(opts)
+  compilerState.inlinedOperatorsEnabled = getInlinedOperatorsEnabled(opts)
+  compilerState.runtime = initializeRuntime(opts)
+
+  compilerState
+
+export postprocess(state) ->
+  { stdlib, programPath, runtime } = state
+  stdlib.imports~insertImports(programPath, stdlib.useRequire or state.opts.useRequire)
+  runtime.imports~insertImports(programPath, state.opts.useRequire)

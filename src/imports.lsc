@@ -10,7 +10,7 @@ export addImport(imports, importPath, name) ->
   if imports[importPath].indexOf(name) < 0: imports[importPath].push(name)
 
 export insertImports(imports, path, useRequire = false) ->
-  declarations = [for key importPath, val importNames in imports:
+  stmts = [for key importPath, val importNames in imports:
     for elem name in importNames:
       if useRequire:
         // const [name] = require("[path]")
@@ -23,10 +23,11 @@ export insertImports(imports, path, useRequire = false) ->
           )
         ])
       else:
+        // import [name] from "[path]"
         t.importDeclaration(
           [t.importDefaultSpecifier(t.identifier(name))]
           t.stringLiteral(importPath)
         )
   ]
 
-
+  if stmts.length > 0: path.unshiftContainer("body", stmts)

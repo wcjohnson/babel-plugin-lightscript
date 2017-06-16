@@ -1,0 +1,25 @@
+import { getCompilerState } from './compilerState'
+import { createImports, addImport } from './imports'
+
+runtimeMethods = {
+  'isMatch': true
+}
+
+export initializeRuntime() ->
+  {
+    imports: createImports()
+    symbols: {}
+  }
+
+export runtime(method) ->
+  if not runtimeMethods[method]:
+    throw new Error(`Invalid runtime method ${method}. This is an internal error.`)
+  
+  { runtime: {symbols, imports}, programPath } = getCompilerState()
+  if not symbols[method]:
+    symbols[method] = programPath.scope.generateUidIdentifier(method)
+    imports~addImport("lightscript-runtime/" + method, symbols[method].name)
+  
+  symbols[method]
+
+

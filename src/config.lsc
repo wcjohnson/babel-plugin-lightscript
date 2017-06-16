@@ -60,14 +60,6 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
 
   parserOpts
 
-// Inject options for current run to avoid deep argument passing
-let currentRunOpts = {}
-
-export setOptionsForCurrentRun(opts) ->
-  now currentRunOpts = opts
-
-export getOptionsForCurrentRun() -> currentRunOpts
-
 // Attempt to determine whether a post-processed Babel plugin is this
 // plugin. This is necessary because Babel doesn't specify the individual
 // plugin configuration during manipulateOptions, only the global configuration.

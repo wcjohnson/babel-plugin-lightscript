@@ -1,9 +1,8 @@
-import { getTypes } from './babelInstance'
+import t from './lightscriptTypes'
 import { ensureBlockBody } from './blocks'
 import is from './is'
 
 generateForInIterator(path, type: "array" | "object") ->
-  t = getTypes()
   idx = path.node.idx || path.scope.generateUidIdentifier("i")
 
   // _i = 0
