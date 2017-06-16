@@ -35,6 +35,10 @@ export getMetadata() ->
         description: "Do not enforce indentation for subscripts on subsequent lines."
         valueType: "boolean"
       }
+      useRequire: {
+        description: "Generate `require` rather than `import` when the compiler introduces a module."
+        valueType: "boolean"
+      }
     }
   }
 
