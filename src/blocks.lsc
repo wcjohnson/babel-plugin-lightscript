@@ -7,6 +7,7 @@ import buildAtLoc from 'ast-loc-utils/lib/buildAtLoc'
 export toBlockStatement(body) ->
   bodyLoc = getLoc(body)
   match body:
+    | not ?: throw new Error("toBlockStatement: invalid node type")
     | ~isa("BlockStatement"): body
     | ~isa("Statement"): buildAtLoc(bodyLoc, t.blockStatement, [body])
     | else: buildAtLoc(bodyLoc, t.blockStatement, [
@@ -15,6 +16,7 @@ export toBlockStatement(body) ->
 
 export toStatement(body) ->
   match body:
+    | not ?: throw new Error("toStatement: invalid node type")
     | ~isa("Expression"):
       buildAtLoc(getLoc(body), t.expressionStatement, body)
     | else: body

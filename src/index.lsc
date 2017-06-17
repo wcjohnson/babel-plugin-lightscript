@@ -9,8 +9,9 @@ import { getShadowingIdentifiers } from "./variables";
 import { ensureConstructor, bindMethodsInConstructor } from "./classes";
 import * as match_v3 from "./match";
 import * as match_v4 from "./match_v4"
+import * as comprehension_v1 from "./comprehension";
+import * as comprehension_v2 from "./comprehension_v2"
 import { replaceWithSafeCall } from "./safeCall";
-import { transformArrayComprehension, transformObjectComprehension } from "./comprehension";
 import { transformExistentialExpression } from "./existential";
 import { replaceWithInlinedOperator } from "./inlinedOperators";
 import { transformForInArrayStatement, transformForInObjectStatement } from "./for";
@@ -94,13 +95,17 @@ Lightscript(babel) ->
         transformForInObjectStatement(path);
       },
 
-      ArrayComprehension(path): void {
-        transformArrayComprehension(path);
-      },
+      ArrayComprehension(path): void ->
+        if opts.enhancedComprehension:
+          comprehension_v2.transformArrayComprehension(path)
+        else:
+          comprehension_v1.transformArrayComprehension(path)
 
-      ObjectComprehension(path): void {
-        transformObjectComprehension(path);
-      },
+      ObjectComprehension(path): void ->
+        if opts.enhancedComprehension:
+          comprehension_v2.transformObjectComprehension(path)
+        else:
+          comprehension_v1.transformObjectComprehension(path)
 
       TildeCallExpression: {
         // run on exit instead of enter so that SafeMemberExpression

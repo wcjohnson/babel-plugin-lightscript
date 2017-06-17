@@ -31,6 +31,11 @@ export getMetadata() ->
         description: "Postfix `?` checks that an expression is not loose-equal to `null`"
         valueType: "boolean"
       }
+      enhancedComprehension: {
+        description: "Positional comprehensions and `case` syntax for comprehensions"
+        valueType: "boolean"
+        stage: "0"
+      }
       noEnforcedSubscriptIndentation: {
         description: "Do not enforce indentation for subscripts on subsequent lines."
         valueType: "boolean"
@@ -71,6 +76,7 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
   if pluginOpts?.bangCall: plugins.push("bangCall")
   if not pluginOpts?.noEnforcedSubscriptIndentation: plugins.push("enforceSubscriptIndentation")
   if pluginOpts?.flippedImports: plugins.push("flippedImports")
+  if pluginOpts?.enhancedComprehension: plugins.push("enhancedComprehension")
 
   patternMatchingVersion = pluginOpts?.patternMatching or "v4"
   if patternMatchingVersion != "disabled":
