@@ -75,6 +75,7 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
   if pluginOpts?.bangCall: plugins.push("bangCall")
   if not pluginOpts?.noEnforcedSubscriptIndentation: plugins.push("enforceSubscriptIndentation")
   if pluginOpts?.flippedImports: plugins.push("flippedImports")
+  if pluginOpts?.enhancedComprehension: plugins.push("enhancedComprehension")
 
   patternMatchingVersion = pluginOpts?.patternMatching or "v4"
   if patternMatchingVersion != "disabled":

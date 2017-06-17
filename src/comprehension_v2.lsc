@@ -33,7 +33,7 @@ iife(body, id, initializer) ->
   body.push(t.returnStatement(id))
 
   t.callExpression(
-    t.arrowFunctionExpression([], body~toBlockStatement())
+    t.arrowFunctionExpression([], t.blockStatement(body))
     []
   )
 
@@ -124,6 +124,7 @@ export transformComprehension(path, isObject) ->
     if element~isa("Comprehension"):
       if first:
         now initializer = bundle
+        now first = false
       else:
         if bundle.length > 0: stmts~pushBundle(id, bundle, isObject)
       now bundle = []
