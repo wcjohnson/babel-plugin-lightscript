@@ -34,6 +34,7 @@ export getMetadata() ->
       enhancedComprehension: {
         description: "Positional comprehensions and `case` syntax for comprehensions"
         valueType: "boolean"
+        stage: "0"
       }
       noEnforcedSubscriptIndentation: {
         description: "Do not enforce indentation for subscripts on subsequent lines."
