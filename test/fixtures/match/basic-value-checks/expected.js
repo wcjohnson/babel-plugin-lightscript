@@ -1,20 +1,21 @@
-const it = x;
-if (it === 1 || it === 0.1 || it === 0x11 || it === +1 || it === -1) {
+const _isMatch = require("@oigroup/lightscript-runtime/isMatch");
+
+if (x === 1 || x === 0.1 || x === 0x11 || x === +1 || x === -1) {
   it;
-} else if (it === "hi") {
+} else if (x === "hi") {
   it;
-} else if (it === `there ${1 + 1}`) {
+} else if (x === `there ${1 + 1}`) {
   it;
-} else if (/\s+/.test(it)) {
+} else if (_isMatch(/\s+/, x)) {
   it;
-} else if (typeof it === "number" || typeof it === "boolean" || typeof it === "string") {
+} else if (_isMatch(Number, x) || _isMatch(Boolean, x) || _isMatch(String, x)) {
   it;
-} else if (Array.isArray(it) || it instanceof Object || it instanceof Map || it instanceof Foo) {
+} else if (_isMatch(Array, x) || _isMatch(Object, x) || _isMatch(Map, x) || _isMatch(Foo, x)) {
   it;
-} else if (it === null || it === undefined) {
+} else if (x === null || x === undefined) {
   it;
-} else if (x || +x) {
+} else if (_isMatch(x, x) || _isMatch(+x, x)) {
   it;
-} else if (!(it === 1) || !x) {
+} else if (!(x === 1) || !_isMatch(x, x)) {
   it;
 }

@@ -1,14 +1,12 @@
 function f() {
-  const it = foo();
-  if (it === 1) {
+  const _it = foo();
+  if (_it === 1) {
     return "ok";
-  } else if (it === 2) {
+  } else if (_it === 2) {
     bar();
-    {
-      const it = baz();
-      if (it === 3) {
-        return qux();
-      }
+    const _it2 = baz();
+    if (_it2 === 3) {
+      return qux();
     }
   }
 }

@@ -1,6 +1,7 @@
-const it = x;
-if (!(it === 1) || !(typeof it === "number") || !(it === "hi")) {
+const _isMatch = require("@oigroup/lightscript-runtime/isMatch");
+
+if (!(x === 1) || !_isMatch(Number, x) || !(x === "hi")) {
   it;
-} else if (!it || !1 + 1 || !foo(bar)) {
+} else if (!_isMatch(it, x) || !Predicate(x) || !foo(bar)) {
   it;
 }

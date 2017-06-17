@@ -1,7 +1,7 @@
-const it = foo();
-if (it === 1) {
+const _it = foo();
+if (_it === 1) {
   "one";
-} else if (it === 2) {
+} else if (_it === 2) {
   "two";
 } else {
   "idk";

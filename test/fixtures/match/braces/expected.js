@@ -1,10 +1,9 @@
 const _hasProps = require("@oigroup/lightscript-runtime/hasProps");
 
-const it = x;
-if (it === 1) {
+if (x === 1) {
   true;
-} else if (test(it) && _hasProps(it, "x")) {
-  const { x } = it;x;
+} else if (test(it) && _hasProps(x, "x")) {
+  const { x } = x;x;
 } else {
   false;
 }

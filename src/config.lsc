@@ -14,8 +14,8 @@ export getMetadata() ->
       patternMatching: {
         description: "Test and branch using `match` keyword"
         valueType: "option"
-        options: ["disabled", "v3", "v4"]
-        defaultValue: "v4"
+        options: ["enhanced"]
+        defaultValue: "enhanced"
         stage: "1"
       }
       bangCall: {
@@ -78,9 +78,11 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
   if pluginOpts?.flippedImports: plugins.push("flippedImports")
   if pluginOpts?.enhancedComprehension: plugins.push("enhancedComprehension")
 
-  patternMatchingVersion = pluginOpts?.patternMatching or "v4"
-  if patternMatchingVersion != "disabled":
-    plugins.push(`match_${patternMatchingVersion}`)
+  // TODO: watch upstream on pattern matching; default to their syntax when complete
+  // patternMatchingVersion = pluginOpts?.patternMatching or "v4"
+  // if patternMatchingVersion != "disabled":
+  //   plugins.push(`match_${patternMatchingVersion}`)
+  plugins.push("match")
 
   parserOpts
 

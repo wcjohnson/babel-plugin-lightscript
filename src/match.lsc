@@ -1,15 +1,31 @@
 import t from './types'
 import { toBlockStatement } from './blocks'
 import { isa } from './is'
-import { isDestructuringPattern, matchesDestructuringPattern } from './destructure'
-import { createAndExpression as And } from './logical'
-import { insertDeclarationBefore, containsReferencedIdentifier } from './variables'
+import { undeclaredRef } from './ref'
+import { matchesDestructuringPattern, accessors } from './destructure'
+import { createAndExpression as And, createOrExpression as Or } from './logical'
+import { runtime } from './runtime'
 
 import getLoc from 'ast-loc-utils/lib/getLoc'
 import atLoc from 'ast-loc-utils/lib/placeAtLoc'
 import atNode from 'ast-loc-utils/lib/placeAtNode'
 import getSurroundingLoc from 'ast-loc-utils/lib/getSurroundingLoc'
 import span from 'ast-loc-utils/lib/span'
+
+// TODO: factor this out to ast-loc-utils
+_traverse(src, visit) ->
+  visit(src)
+  for const key in src:
+    if key[0] === "_": continue
+    val = src[key]
+    if val:
+      if val.type:
+        _traverse(val, visit)
+      elif Array.isArray(val):
+        for elem e in val:
+          _traverse(e, visit)
+
+  src
 
 isUndefined(node) ->
   node.type == "Identifier" and node.name == "undefined"
@@ -19,90 +35,88 @@ isSignedNumber(node) ->
   (node.operator == "+" or node.operator == "-") and
   node.argument.type == "NumericLiteral"
 
-looksLikeClassName(id) ->
-  { name } = id
-  if name[0].toUpperCase() == name[0]:
-    if name.length == 1: true
-    elif name.toUpperCase() == name: false
-    else: true
-  else: false
+transformGuardId(idPath, bindingAccessors) ->
+  { node } = idPath
+  if node._guardWasTransformed: return // Prevent infinite recursion
 
-isSimpleMemberExpression(node) ->
-  node~isa("MemberExpression") and
-  (not node.computed) and
-  (node.object~isa("Identifier") or node.object~isSimpleMemberExpression())
+  if bindingAccessors[node.name]:
+    loc = node~getLoc()
+    replacement = bindingAccessors[node.name]~t.cloneDeep()
+    _traverse(replacement, (n) ->
+      // Prevent infinite recursion
+      if n.type == "Identifier": n._guardWasTransformed = true
+      n~atLoc(loc)
+    )
+    idPath.replaceWith(replacement)
 
-isClassMatchable(node) ->
-  (node~isa("Identifier") and node~looksLikeClassName()) or
-  (node~isSimpleMemberExpression() and node.property~looksLikeClassName())
+transformInnerGuard(mtch, path, bindingAccessors) ->
+  path.traverse({
+    ReferencedIdentifier(idPath): void ->
+      transformGuardId(idPath, bindingAccessors)
+  })
+  path.node
 
-hasTypeof(ref, typeName, loc) ->
-  t.binaryExpression("==="
-    t.unaryExpression("typeof", ref)~atLoc(loc)
-    t.stringLiteral(typeName)~atLoc(loc)
-  )~atLoc(loc)
+transformPredicate(mtch, path) ->
+  { discriminantRef } = mtch
+  path.traverse({
+    MatchPlaceholderExpression(phPath) -> phPath.replaceWith(discriminantRef)
+  })
+  path.node
 
-createClassMatchCondition(node, discriminantRef) ->
-  name = if node~isa("MemberExpression"): node.property.name else: node.name
+isStrictEqualityLiteral(node) ->
+  node~isSignedNumber() or
+  node~isUndefined() or
+  (node~isa("Literal") and (not node~isa("RegExpLiteral")))
 
-  match name:
-    | "Number": discriminantRef~hasTypeof("number", node~getLoc())
-    | "String": discriminantRef~hasTypeof("string", node~getLoc())
-    | "Boolean": discriminantRef~hasTypeof("boolean", node~getLoc())
-    | "Array":
-      t.callExpression(
-        t.memberExpression(
-          t.identifier("Array")~atNode(node)
-          t.identifier("isArray")~atNode(node)
-        )~atNode(node)
-        [discriminantRef]
-      )~atNode(node)
-    | else:
-      t.binaryExpression("instanceof", discriminantRef, node)~atNode(node)
+isPredicate(node) ->
+  node~isa("CallExpression")
 
-createMatchTestReplacement(path, discriminantRef) ->
-  node = path.node
+transformAtom(mtch, path) ->
+  { discriminantRef } = mtch
+  { node } = path
+
   match node:
     | ~isa("LogicalExpression"):
-      node.left = createMatchTestReplacement(path.get("left"), discriminantRef)
-      node.right = createMatchTestReplacement(path.get("right"), discriminantRef)
+      node.left = mtch~transformAtom(path.get("left"))
+      node.right = mtch~transformAtom(path.get("right"))
       node
     | ~isa("UnaryExpression") and .operator == "!":
-      node.argument = createMatchTestReplacement(path.get("argument"), discriminantRef)
+      node.argument = mtch~transformAtom(path.get("argument"))
       node
-    | ~isa("RegExpLiteral"):
-      loc = getLoc(node)
-      t.callExpression(
-        t.memberExpression(
-          node, t.identifier("test")~atLoc(loc)
-        )~atLoc(loc)
-        [discriminantRef]
-      )~atLoc(loc)
-    | ~isUndefined() or ~isa("Literal") or ~isSignedNumber():
+    | ~isStrictEqualityLiteral():
       t.binaryExpression("===", discriminantRef, node)~atNode(node)
-    | ~isa("ObjectExpression") or ~isa("ArrayExpression"):
-      throw path.buildCodeFrameError(
-        "Object and array literals are illegal in test expressions. " +
-        "To match against a destructuring pattern, " +
-        "use `with` (eg: `| with { foo, bar }: foo + bar`)."
-      )
-    | ~isClassMatchable():
-      node~createClassMatchCondition(discriminantRef)
+    | ~isPredicate():
+      mtch~transformPredicate(path)
     | else:
-      node
+      t.callExpression(
+        runtime('isMatch')~t.clone()~atNode(node)
+        [ node, discriminantRef ]
+      )~atNode(node)
 
-transformPreTest({ discriminantRef }, testPath) ->
-  createMatchTestReplacement(testPath, discriminantRef)
+transformAtoms(mtch, atomPaths) ->
+  Or([for elem atomPath in atomPaths: mtch~transformAtom(atomPath)])
 
 transformMatchTest(mtch, casePath) ->
-  { test, binding } = casePath.node
-  testPath = casePath.get("test")
-  conditions = []
+  { outerGuard, atoms, binding, assertive, innerGuard } = casePath.node
   { discriminantRef } = mtch
+  conditions = []
 
-  if test: conditions.push(mtch~transformPreTest(testPath))
-  if binding and binding~isDestructuringPattern():
+  if outerGuard:
+    conditions.push(outerGuard)
+  if atoms and atoms.length > 0:
+    conditions.push(mtch~transformAtoms(casePath.get("atoms")))
+  if binding and assertive:
     conditions.push(discriminantRef~matchesDestructuringPattern(binding))
+  if innerGuard:
+    if binding:
+      // Transform referenced identifiers in the inner guard into accessors
+      // into the matched pattern.
+      const bindingAccessors = {}
+      binding~accessors(discriminantRef, bindingAccessors)
+      nextInnerGuard = mtch~transformInnerGuard(casePath.get("innerGuard"), bindingAccessors)
+      conditions.push(nextInnerGuard)
+    else:
+      conditions.push(innerGuard)
 
   And(conditions)
 
@@ -125,12 +139,11 @@ transformMatchConsequent(mtch, casePath) ->
 transformMatchCase(mtch, casePath) ->
   c = casePath.node
   {
-    test: if c.test?.type != "MatchElse": mtch~transformMatchTest(casePath)
+    test: if c.outerGuard?.type != "MatchElse": mtch~transformMatchTest(casePath)
     consequent: mtch~transformMatchConsequent(casePath)
   }
 
-transformMatchCases(mtch, casePaths) ->
-  [casePath, ...rest] = casePaths
+transformMatchCases(mtch, [casePath, ...rest]) ->
   c = casePath.node
   { test, consequent } = mtch~transformMatchCase(casePath)
 
@@ -145,45 +158,36 @@ transformMatchCases(mtch, casePaths) ->
 // Computed values needed in recursive descent.
 getMatchInfo(path, discriminantRef) ->
   { node } = path
-  { path, node, discriminantRef, lastCase: node.cases[node.cases.length - 1] }
+  {
+    path, node, discriminantRef
+    // Track last case for source map positioning
+    lastCase: node.cases[node.cases.length - 1]
+  }
 
 export transformMatchExpression(path) ->
-  node = path.node
-  { discriminant, alias = t.identifier("it")~atLoc(node~getLoc()~span(1)) } = node
+  { node } = path
 
-  matchBody = getMatchInfo(path, alias)~transformMatchCases(path.get("cases"))
+  argRef = path.scope.generateUidIdentifier("it")~atLoc(getLoc(node)~span(1))
+  matchBody = getMatchInfo(path, argRef)~transformMatchCases(path.get("cases"))
 
   iife = t.callExpression(
     t.arrowFunctionExpression(
-      [alias], t.blockStatement([matchBody])~atNode(node)
+      [argRef], t.blockStatement([matchBody])~atNode(node)
     )~atNode(node)
-    [discriminant]
+    [node.discriminant]
   )~atNode(node)
 
   path.replaceWith(iife)
 
 export transformMatchStatement(path) ->
-  node = path.node
-  { discriminant, alias = t.identifier("it")~atLoc(node~getLoc()~span(1)) } = node
+  { discriminant } = path.node;
 
-  elideAlias = discriminant~isa("Identifier") and (not path~containsReferencedIdentifier(alias))
-  needsBlock = (not elideAlias) and path.scope.hasBinding(alias.name)
+  { ref, declarator, isComplex } = undeclaredRef(path, discriminant, "it")
+  if isComplex:
+    path.insertBefore(
+      t.variableDeclaration("const", [declarator])~atNode(declarator)
+    )
 
-  if elideAlias:
-    path.replaceWith(
-      getMatchInfo(path, discriminant)~transformMatchCases(path.get("cases"))
-    )
-  elif needsBlock:
-    path.replaceWith(
-      t.blockStatement([
-        t.variableDeclaration("const", [
-          t.variableDeclarator(alias, discriminant)~atNode(discriminant)
-        ])~atNode(discriminant)
-        getMatchInfo(path, alias)~transformMatchCases(path.get("cases"))
-      ])~atNode(node)
-    )
-  else:
-    path~insertDeclarationBefore(alias, discriminant, "const", discriminant~getLoc())
-    path.replaceWith(
-      getMatchInfo(path, alias)~transformMatchCases(path.get("cases"))
-    )
+  path.replaceWith(
+    getMatchInfo(path, ref)~transformMatchCases(path.get("cases"))
+  )

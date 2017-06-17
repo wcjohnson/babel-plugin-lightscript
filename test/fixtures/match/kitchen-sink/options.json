@@ -1,3 +1,0 @@
-{
-  "plugins": [["lightscript", { "safeCall": true, "existential": true }]]
-}

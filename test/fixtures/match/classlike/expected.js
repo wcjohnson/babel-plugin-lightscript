@@ -1,15 +1,17 @@
-if (typeof x === "string") {
+const _isMatch = require("@oigroup/lightscript-runtime/isMatch");
+
+if (_isMatch(String, x)) {
   "string";
-} else if (typeof x === "number") {
+} else if (_isMatch(Number, x)) {
   "number";
-} else if (typeof x === "boolean") {
+} else if (_isMatch(Boolean, x)) {
   "boolean";
-} else if (Array.isArray(x)) {
+} else if (_isMatch(Array, x)) {
   "Call .isArray";
-} else if (x instanceof Object) {
+} else if (_isMatch(Object, x)) {
   "instanceof";
-} else if (x instanceof React.Component) {
+} else if (_isMatch(React.Component, x)) {
   "it's a component";
-} else if (React["Component"]) {
-  "don't do it like this";
+} else if (_isMatch(React["Component"], x)) {
+  "yup";
 }

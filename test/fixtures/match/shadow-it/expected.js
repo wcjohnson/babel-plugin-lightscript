@@ -1,10 +1,8 @@
 const it = "good";
 
 function f() {
-  {
-    const it = "bad";
-    if (it === true) {
-      true;
-    }
+  const _it = "bad";
+  if (_it === true) {
+    true;
   }return it;
 }

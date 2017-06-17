@@ -1,26 +1,25 @@
-const it = x;
 if (a) {
   "a is truthy";
-} else if (it === a) {
+} else if (x === a) {
   "x equals a";
 } else if (f()) {
   "f() is truthy";
-} else if (it === f()) {
+} else if (x === f()) {
   "x equals f()";
 } else if (!f()) {
   "f() is falsy";
-} else if (!(it === f())) {
+} else if (!(x === f())) {
   "x isnt f()";
-} else if (it === 1 || it === 2) {
+} else if (x === 1 || x === 2) {
   "smaller than 3";
-} else if (it === 1 || !(it === 2)) {
+} else if (x === 1 || !(x === 2)) {
   "anything but 2";
-} else if (it === "nothing" || it === null || it > -1 && !(it >= 1)) {
+} else if ((x === "nothing" || x === null) && x > -1 && !(x >= 1)) {
   "something like zero";
-} else if (!(it === undefined)) {
+} else if (!(x === undefined)) {
   "something";
-} else if (!(it === null)) {
+} else if (!(x === null)) {
   "maybe something";
-} else if (!(it >= 1)) {
+} else if (!(x >= 1)) {
   "small";
 }
