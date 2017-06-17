@@ -31,6 +31,10 @@ export getMetadata() ->
         description: "Postfix `?` checks that an expression is not loose-equal to `null`"
         valueType: "boolean"
       }
+      enhancedComprehension: {
+        description: "Positional comprehensions and `case` syntax for comprehensions"
+        valueType: "boolean"
+      }
       noEnforcedSubscriptIndentation: {
         description: "Do not enforce indentation for subscripts on subsequent lines."
         valueType: "boolean"
