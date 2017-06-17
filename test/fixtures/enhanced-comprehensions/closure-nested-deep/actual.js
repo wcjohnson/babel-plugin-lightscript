@@ -4,6 +4,6 @@
       f() ->
         {for idx k in Array(10):
           if k > 7:
-            k, g() -> function h() { [i,j,k] }
+            (k, g() -> function h() { [i,j,k] })
         }
 ]
