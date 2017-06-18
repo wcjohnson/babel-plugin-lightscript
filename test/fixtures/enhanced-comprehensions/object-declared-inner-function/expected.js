@@ -1,6 +1,5 @@
 (() => {
   const _obj = {};
-
   for (let _arr = Array(3), i = 0, _len = _arr.length; i < _len; i++) {
     const x = g(i);
 
@@ -8,6 +7,5 @@
       return x + 1;
     };
   }
-
   return _obj;
 })();
