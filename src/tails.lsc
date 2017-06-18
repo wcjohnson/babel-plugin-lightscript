@@ -43,7 +43,7 @@ export transformTails(path, allowLoops, allowExprs, getNewNode) ->
       | allowExprs and ~isa("Expression"):
         tailPath.replaceWith(getNewNode(tailPath.node, tailPath))
       | ~isa("ExpressionStatement"):
-        tailPath.replaceWith(getNewNode(tailPath.node.expression, tailPath))
+        tailPath.replaceWith(getNewNode(tailPath.node.expression, tailPath)~toStatement())
       | ~isa("VariableDeclaration"):
         decls = tailPath.node.declarations
         if decls.length > 1:

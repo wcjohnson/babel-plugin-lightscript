@@ -10,8 +10,7 @@ import { blockToExpression, toBlockStatement } from "./blocks";
 import { getShadowingIdentifiers, checkFalsePositiveReference } from "./variables";
 import { ensureConstructor, bindMethodsInConstructor } from "./classes";
 import * as matching from "./match";
-import * as comprehension_v1 from "./comprehension";
-import * as comprehension_v2 from "./comprehension_v2"
+import * as comprehension from "./comprehension";
 import { replaceWithSafeCall, transformSafeMemberExpression, transformExistentialExpression } from "./safe";
 import { replaceWithInlinedOperator } from "./inlinedOperators";
 import { transformForInArrayStatement, transformForInObjectStatement } from "./for";
@@ -97,15 +96,38 @@ Lightscript(babel) ->
 
       ArrayComprehension(path): void ->
         if opts.enhancedComprehension:
-          comprehension_v2.transformArrayComprehension(path)
+          comprehension.transformArrayComprehension(path)
         else:
-          comprehension_v1.transformArrayComprehension(path)
+          // Shim V1 onto V2
+          { node } = path
+          { loop } = node
+          if loop:
+            delete node.loop
+            // TODO: fix babel patch so there's a builder for this...
+            node.elements = [ {
+              type: "LoopComprehension"
+              loop
+            }~atNode(node) ]
+            path.replaceWith(node)
+            comprehension.transformArrayComprehension(path)
+
 
       ObjectComprehension(path): void ->
         if opts.enhancedComprehension:
-          comprehension_v2.transformObjectComprehension(path)
+          comprehension.transformObjectComprehension(path)
         else:
-          comprehension_v1.transformObjectComprehension(path)
+          // Shim V1 onto V2
+          { node } = path
+          { loop } = node
+          if loop:
+            delete node.loop
+            // TODO: fix babel patch so there's a builder for this...
+            node.properties = [ {
+              type: "LoopComprehension"
+              loop
+            }~atNode(node) ]
+            path.replaceWith(node)
+            comprehension.transformObjectComprehension(path)
 
       TildeCallExpression: {
         // run on exit instead of enter so that SafeMemberExpression

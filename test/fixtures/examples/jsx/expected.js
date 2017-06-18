@@ -3,8 +3,7 @@ function otherCondition() {
 }const ThingsList1 = ({ things, selectedId }) => {
   return <ul>
     {(() => {
-      const _arr = [];
-      for (const thing of things) {
+      const _arr = [];for (const thing of things) {
         if (thing.id === selectedId && otherCondition()) {
           _arr.push(<SpecialThing thing={thing} />);
         } else {
@@ -27,7 +26,6 @@ function otherCondition() {
   return <ul>
     {(() => {
       const _arr2 = [];
-
       for (let _i = 0, _len = things.length; _i < _len; _i++) {
         const thing = things[_i];
         if (thing.id === selectedId && otherCondition()) {
