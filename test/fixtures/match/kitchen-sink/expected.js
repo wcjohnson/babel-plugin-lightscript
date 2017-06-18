@@ -1,7 +1,4 @@
-const _isMatch = require("@oigroup/lightscript-runtime/isMatch");
-
-const _hasProps = require("@oigroup/lightscript-runtime/hasProps");
-
+const _isMatch = require("@oigroup/lightscript-runtime/isMatch");const _hasProps = require("@oigroup/lightscript-runtime/hasProps");
 if (_isMatch(Atom, x)) {
   1;
 } else if (Predicate(x)) {

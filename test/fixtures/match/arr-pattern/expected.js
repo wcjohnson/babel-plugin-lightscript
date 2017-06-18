@@ -1,5 +1,4 @@
 const _hasLength = require('@oigroup/lightscript-runtime/hasLength');
-
 if (_hasLength(x)) {
   const [] = x;
   "empty";

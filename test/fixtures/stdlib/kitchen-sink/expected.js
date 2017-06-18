@@ -1,6 +1,4 @@
-import map from 'lodash/map';
-import round from 'lodash/round';
-1 == '1';
+import map from 'lodash/map';import round from 'lodash/round';1 == '1';
 1 != '1';
 foo(1, '1');
 function uniq(x) {

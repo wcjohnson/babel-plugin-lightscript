@@ -1,7 +1,4 @@
-const _hasProps = require("@oigroup/lightscript-runtime/hasProps");
-
-const _hasLength = require("@oigroup/lightscript-runtime/hasLength");
-
+const _hasProps = require("@oigroup/lightscript-runtime/hasProps");const _hasLength = require("@oigroup/lightscript-runtime/hasLength");
 if (_hasProps(x, "y")) {
   const { y } = x;y;
 } else if (x === 2 && _hasProps(x, "key")) {
