@@ -1,4 +1,6 @@
-import is from "./is";
+import is from "./is"
+
+import atNode from 'ast-loc-utils/lib/placeAtNode'
 
 import {
   addImplicitReturns, replaceWithPlainFunction, replaceWithArrowFunction,
@@ -110,22 +112,21 @@ Lightscript(babel) ->
         // run on exit instead of enter so that SafeMemberExpression
         // can process differently from a wrapping CallExpression
         // eg; `a?.b~c()` -> `a == null ? null : c(a.b)`
-        exit(path): void {
-          const args = [ path.node.left, ...path.node.arguments ];
-          const callExpr = t.callExpression(path.node.right, args);
+        exit(path): void ->
+          { node } = path
+          args = [ node.left, ...node.arguments ]
+          callExpr = t.callExpression(node.right, args)~atNode(node)
 
           if (
             compilerState.inlinedOperatorsEnabled &&
-            replaceWithInlinedOperator(path, path.node.right, args)
+            path~replaceWithInlinedOperator(path.node.right, args)
           ) return;
 
-          if (path.node.safe) {
-            replaceWithSafeCall(path, callExpr);
-          } else {
+          if (path.node.safe):
+            path~replaceWithSafeCall(callExpr);
+          else:
             path.replaceWith(callExpr);
-          }
-        },
-      },
+      }
 
       CallExpression: {
         exit(path): void {
