@@ -1,8 +1,7 @@
 import t from './types'
 import is, { isa } from './is'
 
-import getLoc from 'ast-loc-utils/lib/getLoc'
-import buildAtLoc from 'ast-loc-utils/lib/buildAtLoc'
+import { getLoc, buildAtLoc, getSurroundingLoc, placeAtLoc as atLoc } from 'ast-loc-utils'
 
 export toBlockStatement(body) ->
   bodyLoc = getLoc(body)
@@ -60,3 +59,22 @@ export getScopeParent(path) ->
   path.findParent((path) ->
     path.isFunction() or path.isBlockStatement() or path.isProgram()
   )
+
+export iife(body, async = false) ->
+  actualBody = if Array.isArray(body):
+    bodyLoc = getSurroundingLoc(body)
+    t.blockStatement(body)~atLoc(bodyLoc)
+  else:
+    body~toBlockStatement()
+
+  loc = actualBody~getLoc()
+
+  t.callExpression(
+    t.arrowFunctionExpression(
+      []
+      actualBody
+      async
+    )~atLoc(loc)
+    []
+  )~atLoc(loc)
+

@@ -1,12 +1,12 @@
 import is from "./is"
 
-import atNode from 'ast-loc-utils/lib/placeAtNode'
+import { placeAtNode as atNode, placeTreeAtLocWhenUnplaced as allAtLoc, getLoc } from 'ast-loc-utils'
 
 import {
   addImplicitReturns, replaceWithPlainFunction, replaceWithArrowFunction,
   replaceWithBoundFunction, isNamedArrowFunction
 } from "./functions";
-import { blockToExpression, toBlockStatement } from "./blocks";
+import { blockToExpression, toBlockStatement, iife } from "./blocks";
 import { getShadowingIdentifiers, checkFalsePositiveReference } from "./variables";
 import { ensureConstructor, bindMethodsInConstructor } from "./classes";
 import * as matching from "./match";
@@ -292,23 +292,23 @@ Lightscript(babel) ->
         }
       },
 
-      SafeAwaitExpression(path): void {
+      SafeAwaitExpression(path): void ->
         const errId = path.scope.generateUidIdentifier("err");
+        awaitIife = iife(
+          t.tryStatement(
+            t.blockStatement([
+              t.returnStatement(t.awaitExpression(path.node.argument))
+            ]),
+            t.catchClause(errId, t.blockStatement([
+              t.returnStatement(errId)
+            ]))
+          )
+          true
+        )
 
-        const tryCatch = t.tryStatement(
-          t.blockStatement([
-            t.returnStatement(t.awaitExpression(path.node.argument))
-          ]),
-          t.catchClause(errId, t.blockStatement([
-            t.returnStatement(errId)
-          ])),
-        );
-        const fn = t.arrowFunctionExpression([], t.blockStatement([tryCatch]), true);
         // TODO: returntype annotation
-        const iife = t.callExpression(fn, []);
-        const awaitExpr = t.awaitExpression(iife);
-        path.replaceWith(awaitExpr);
-      },
+        awaitExpr = t.awaitExpression(awaitIife)~allAtLoc(getLoc(path.node))
+        path.replaceWith(awaitExpr)
 
       SafeMemberExpression(path): void ->
         transformSafeMemberExpression(path)
