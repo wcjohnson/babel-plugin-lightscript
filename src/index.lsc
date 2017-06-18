@@ -1,6 +1,6 @@
 import is from "./is"
 
-import { placeAtNode as atNode, placeTreeAtLocWhenUnplaced as allAtLoc, getLoc } from 'ast-loc-utils'
+import { placeAtNode as atNode, placeTreeAtLocWhenUnplaced as allAtLoc, getLoc, placeAtLoc as atLoc, getSurroundingLoc } from 'ast-loc-utils'
 
 import {
   addImplicitReturns, replaceWithPlainFunction, replaceWithArrowFunction,
@@ -183,13 +183,13 @@ Lightscript(babel) ->
           now node = t.callExpression(
             t.memberExpression(node, t.identifier("bind")),
             [object]
-          );
+          )~allAtLoc(getLoc(object))
         }
 
         path.replaceWith(t.assignmentExpression("=",
-          t.memberExpression(object, path.node.id),
-          node,
-        ));
+          t.memberExpression(object, path.node.id)~atLoc(getSurroundingLoc([object, path.node.id]))
+          node
+        )~atNode(node));
       },
 
       ArrowFunctionExpression(path): void {
@@ -202,6 +202,7 @@ Lightscript(babel) ->
 
       Method(path): void {
         if (isNamedArrowFunction(path.node)) {
+          // XXX: non-idiomatic ast mutation, could cause problems...
           path.node.body = toBlockStatement(path.node.body);
         }
       },
