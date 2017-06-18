@@ -5,7 +5,7 @@ import {
   replaceWithBoundFunction, isNamedArrowFunction
 } from "./functions";
 import { blockToExpression, toBlockStatement } from "./blocks";
-import { getShadowingIdentifiers } from "./variables";
+import { getShadowingIdentifiers, checkFalsePositiveReference } from "./variables";
 import { ensureConstructor, bindMethodsInConstructor } from "./classes";
 import * as matching from "./match";
 import * as comprehension_v1 from "./comprehension";
@@ -357,7 +357,9 @@ Lightscript(babel) ->
       },
 
       // collect functions to be imported for the stdlib
-      ReferencedIdentifier(path): void -> compilerState.stdlib~markIdentifier(path)
+      ReferencedIdentifier(path): void ->
+        if not checkFalsePositiveReference(path):
+          compilerState.stdlib~markIdentifier(path)
 
       ExistentialExpression(path): void {
         transformExistentialExpression(path);

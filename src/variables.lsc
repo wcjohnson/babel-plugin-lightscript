@@ -18,7 +18,9 @@ export containsReferencedIdentifier(path, identifier) ->
 
   path.traverse({
     ReferencedIdentifier(refPath): void ->
-      if refPath.node.name == identifierName:
+      if checkFalsePositiveReference(refPath):
+        refPath.skip()
+      elif refPath.node.name == identifierName:
         now result = true
         refPath.stop()
   })
@@ -33,3 +35,16 @@ export insertDeclarationBefore(path, id, init, kind, loc) ->
     ])~atLoc(loc)
   )
   path.scope.registerBinding(kind, path.getSibling(path.key - 1))
+
+// Workaround a babel bug with Flow types
+export checkFalsePositiveReference(refPath) ->
+  { node } = refPath
+  parentNode = refPath.parentPath.node
+  if not parentNode: return false
+
+  if parentNode.type == "ObjectTypeProperty" and parentNode.key == node:
+    !parentNode.computed
+  elif parentNode.type == "FunctionTypeParam":
+    true
+  else:
+    false

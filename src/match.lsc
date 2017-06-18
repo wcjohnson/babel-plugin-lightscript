@@ -5,6 +5,7 @@ import { undeclaredRef } from './ref'
 import { matchesDestructuringPattern, accessors } from './destructure'
 import { createAndExpression as And, createOrExpression as Or } from './logical'
 import { runtime } from './runtime'
+import { checkFalsePositiveReference } from './variables'
 
 import getLoc from 'ast-loc-utils/lib/getLoc'
 import atLoc from 'ast-loc-utils/lib/placeAtLoc'
@@ -52,7 +53,8 @@ transformGuardId(idPath, bindingAccessors) ->
 transformInnerGuard(mtch, path, bindingAccessors) ->
   path.traverse({
     ReferencedIdentifier(idPath): void ->
-      transformGuardId(idPath, bindingAccessors)
+      if not checkFalsePositiveReference(idPath):
+        transformGuardId(idPath, bindingAccessors)
   })
   path.node
 
