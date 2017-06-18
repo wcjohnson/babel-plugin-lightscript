@@ -15,9 +15,7 @@
 
 const f = () => {
   throw new Error();
-};
-
-f();
+};f();
 
 (function () {
   return 1;

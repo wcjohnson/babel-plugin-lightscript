@@ -7,7 +7,6 @@
         return i;
       };
     }
-
     _arr.push(f);
   }
 

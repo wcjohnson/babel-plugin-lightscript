@@ -1,8 +1,6 @@
 function otherCondition() {
   return true;
-}
-
-const ThingsList1 = ({ things, selectedId }) => {
+}const ThingsList1 = ({ things, selectedId }) => {
   return <ul>
     {(() => {
       const _arr = [];
@@ -15,9 +13,7 @@ const ThingsList1 = ({ things, selectedId }) => {
       }return _arr;
     })()}
   </ul>;
-};
-
-const ThingsList2 = ({ things, selectedId }) => {
+};const ThingsList2 = ({ things, selectedId }) => {
   return <ul>
     {things.map(function (thing) {
       if (thing.id === selectedId && otherCondition()) {
@@ -27,9 +23,7 @@ const ThingsList2 = ({ things, selectedId }) => {
       }
     })}
   </ul>;
-};
-
-const ThingsList3 = ({ things, selectedId }) => {
+};const ThingsList3 = ({ things, selectedId }) => {
   return <ul>
     {(() => {
       const _arr2 = [];

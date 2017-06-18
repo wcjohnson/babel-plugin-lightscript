@@ -5,7 +5,6 @@
     function f() {
       return i;
     }
-
     _arr.push(f);
   }
 
