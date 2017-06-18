@@ -12,8 +12,7 @@ import { ensureConstructor, bindMethodsInConstructor } from "./classes";
 import * as matching from "./match";
 import * as comprehension_v1 from "./comprehension";
 import * as comprehension_v2 from "./comprehension_v2"
-import { replaceWithSafeCall } from "./safeCall";
-import { transformExistentialExpression } from "./existential";
+import { replaceWithSafeCall, transformSafeMemberExpression, transformExistentialExpression } from "./safe";
 import { replaceWithInlinedOperator } from "./inlinedOperators";
 import { transformForInArrayStatement, transformForInObjectStatement } from "./for";
 import { resetHelpers } from "./helpers";
@@ -289,46 +288,8 @@ Lightscript(babel) ->
         path.replaceWith(awaitExpr);
       },
 
-      SafeMemberExpression(path): void {
-        // x?.y -> x == null ? x : x.y
-        // x?[y] -> x == null ? x : x[y]
-        const { node } = path;
-        const { object } = node;
-
-        let left;
-        if (object.type === "Identifier" || object.type === "SafeMemberExpression") {
-          now left = object;
-        } else {
-          const ref = path.scope.generateDeclaredUidIdentifier("ref");
-          node.object = ref;
-          now left = t.assignmentExpression("=", ref, object);
-        }
-
-        const nullCheck = t.binaryExpression("==", left, t.nullLiteral());
-        node.type = "MemberExpression";
-        path.replaceWith(node);
-
-        // Gather trailing subscripts/calls, which are parent nodes:
-        // eg; in `o?.x.y()`, group trailing `.x.y()` into the ternary
-        let tail = path;
-        while (tail.parentPath) {
-          const parent = tail.parentPath;
-          const hasChainedParent = (
-            parent.isMemberExpression() ||
-            (parent.isCallExpression() && parent.get("callee") === tail) ||
-            (parent.node.type === "TildeCallExpression" && parent.get("left") === tail)
-          );
-
-          if (hasChainedParent) {
-            now tail = tail.parentPath;
-          } else {
-            break;
-          }
-        }
-
-        const ternary = t.conditionalExpression(nullCheck, t.nullLiteral(), tail.node);
-        tail.replaceWith(ternary);
-      },
+      SafeMemberExpression(path): void ->
+        transformSafeMemberExpression(path)
 
       AwaitExpression(path): void {
         if (path.get("argument").isArrayExpression() || path.node.argument.type === "ArrayComprehension") {
