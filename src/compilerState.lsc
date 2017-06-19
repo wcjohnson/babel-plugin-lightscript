@@ -61,6 +61,17 @@ export getFileTypeInfo(file) ->
 processFilename(state): void ->
   Object.assign(state, getFileTypeInfo(state.file))
 
+// This will get the position of the first non-comment token. We place imports
+// and requires here because ESLint requires the corresponding string literals
+// to be on top of a valid token, or it chokes.
+findFirstTokenLoc(tokens) ->
+  if (not tokens) or (tokens.length == 0): return null
+
+  for elem t in tokens:
+    if t and (!t.type?.indexOf or t.type.indexOf("Comment") < 0): return getLoc(t)
+
+  return null
+
 export createCompilerState(initialState) ->
   now compilerState = initialState
   processFilename(compilerState)
@@ -68,8 +79,9 @@ export createCompilerState(initialState) ->
   // Get zero-location
   tokens = initialState?.file?.ast?.tokens
   body = initialState?.programPath?.node?.body
-  if tokens and tokens.length > 0:
-    initialState.firstLoc = getLoc(tokens[0])
+  loc = findFirstTokenLoc(tokens)
+  if loc:
+    initialState.firstLoc = loc
   elif body and body.length > 0:
     initialState.firstLoc = getLoc(body[0])~span(1)
   else:
