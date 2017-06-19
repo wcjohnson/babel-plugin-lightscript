@@ -2,7 +2,7 @@ import t from './types'
 import { ensureBlockBody } from './blocks'
 import { undeclaredRef } from './ref'
 
-import { getLoc, placeAtLoc as atLoc, placeAtNode as atNode, span, placeTreeAtLocWhenUnplaced as allAtLoc } from 'ast-loc-utils'
+import { getLoc, placeAtLoc as atLoc, placeAtNode as atNode, span, placeTreeAtLocWhenUnplaced as allAtLoc, getSurroundingLoc } from 'ast-loc-utils'
 
 generateForInIterator(path, type: "array" | "object") ->
   { node } = path
@@ -105,3 +105,33 @@ export transformForInArrayStatement(path) ->
 
 export transformForInObjectStatement(path) ->
   path.replaceWith(generateForInIterator(path, "object"))
+
+toPattern(lvalues) ->
+  now lvalues = lvalues.filter( x -> !!x )
+  loc = getSurroundingLoc(lvalues)
+  pattern = t.arrayPattern([])~atLoc(loc)
+  pattern.elements = lvalues
+
+  t.variableDeclaration("const", [
+    t.variableDeclarator(pattern)~atLoc(loc)
+  ])~atLoc(loc)
+
+export lintForInArrayStatement(path) ->
+  { node } = path
+  path.replaceWith(
+    t.forOfStatement(
+      toPattern([node.idx, node.elem])
+      node.array
+      node.body
+    )~atNode(node)
+  )
+
+export lintForInObjectStatement(path) ->
+  { node } = path
+  path.replaceWith(
+    t.forOfStatement(
+      toPattern([node.key, node.val])
+      node.object
+      node.body
+    )~atNode(node)
+  )

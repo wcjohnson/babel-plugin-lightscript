@@ -13,7 +13,7 @@ import * as matching from "./match";
 import * as comprehension from "./comprehension";
 import { replaceWithSafeCall, transformSafeMemberExpression, transformExistentialExpression } from "./safe";
 import { replaceWithInlinedOperator } from "./inlinedOperators";
-import { transformForInArrayStatement, transformForInObjectStatement } from "./for";
+import { transformForInArrayStatement, transformForInObjectStatement, lintForInArrayStatement, lintForInObjectStatement } from "./for";
 import { resetHelpers } from "./helpers";
 import { markIdentifier } from "./stdlib";
 import { locatePluginOpts, getParserOpts } from './config'
@@ -86,13 +86,17 @@ Lightscript(babel) ->
 
     path.traverse({
 
-      ForInArrayStatement(path): void {
-        transformForInArrayStatement(path);
-      },
+      ForInArrayStatement(path): void ->
+        if opts.__linter:
+          lintForInArrayStatement(path)
+        else:
+          transformForInArrayStatement(path)
 
-      ForInObjectStatement(path): void {
-        transformForInObjectStatement(path);
-      },
+      ForInObjectStatement(path): void ->
+        if opts.__linter:
+          lintForInObjectStatement(path)
+        else:
+          transformForInObjectStatement(path);
 
       ArrayComprehension(path): void ->
         if opts.enhancedComprehension:
