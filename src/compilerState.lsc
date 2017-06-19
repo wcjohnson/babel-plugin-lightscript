@@ -66,8 +66,11 @@ export createCompilerState(initialState) ->
   processFilename(compilerState)
 
   // Get zero-location
+  tokens = initialState?.file?.ast?.tokens
   body = initialState?.programPath?.node?.body
-  if body and body.length > 0:
+  if tokens and tokens.length > 0:
+    initialState.firstLoc = getLoc(tokens[0])
+  elif body and body.length > 0:
     initialState.firstLoc = getLoc(body[0])~span(1)
   else:
     initialState.firstLoc = {
