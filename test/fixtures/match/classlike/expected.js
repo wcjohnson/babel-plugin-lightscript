@@ -1,5 +1,4 @@
 const _isMatch = require("@oigroup/lightscript-runtime/isMatch");
-
 if (_isMatch(String, x)) {
   "string";
 } else if (_isMatch(Number, x)) {

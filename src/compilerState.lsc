@@ -5,6 +5,8 @@ import { initializeRuntime } from './runtime'
 import { insertImports } from './imports'
 import { getInlinedOperatorsEnabled } from './inlinedOperators'
 
+import { getLoc, span } from 'ast-loc-utils'
+
 // Singleton object, unique per Program traversal, holding relevant state.
 let compilerState = {
   // DI Babel instance. Avoid unless necessary; prefer types.lsc
@@ -12,6 +14,9 @@ let compilerState = {
 
   // Root program path
   programPath: null
+
+  // Location mixin representing the first character in the file.
+  firstLoc: null
 
   // Babel Plugin options
   opts: null
@@ -59,6 +64,18 @@ processFilename(state): void ->
 export createCompilerState(initialState) ->
   now compilerState = initialState
   processFilename(compilerState)
+
+  // Get zero-location
+  body = initialState?.programPath?.node?.body
+  if body and body.length > 0:
+    initialState.firstLoc = getLoc(body[0])~span(1)
+  else:
+    initialState.firstLoc = {
+      start: 0
+      end: 1
+      loc: { start: { line: 1, column: 0 }, end: { line: 1, column: 1 } }
+    }
+
   return compilerState
 
 export initializeCompilerState() ->

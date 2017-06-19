@@ -3,8 +3,9 @@ import { transformTails } from './tails'
 import t from './types'
 import { toBlockStatement } from './blocks'
 
-import getLoc from "ast-loc-utils/lib/getLoc";
-import buildAtLoc from "ast-loc-utils/lib/buildAtLoc";
+import getLoc from 'ast-loc-utils/lib/getLoc'
+import atNode from 'ast-loc-utils/lib/placeAtNode'
+import atLoc from 'ast-loc-utils/lib/placeAtLoc'
 
 // Add "return" statements to all expressions in tail position inside the
 // body of the function at the given Babel traversal path.
@@ -18,7 +19,7 @@ export addImplicitReturns(functionPath) ->
     functionPath.get("body")
     false
     false
-    (expr) -> buildAtLoc(getLoc(expr), t.returnStatement, expr)
+    (expr) -> t.returnStatement(expr)~atNode(expr)
   )
 
 // Convert any functional node (NamedArrow etc) back to a JS
@@ -27,8 +28,10 @@ export toPlainFunction(node) ->
   { id, params, body, generator, async } = node;
 
   nextNode = match node:
-    | ~isa("Statement"): t.functionDeclaration(id, params, toBlockStatement(body), generator, async)
-    | else: t.functionExpression(id, params, toBlockStatement(body), generator, async)
+    | ~isa("Statement"):
+      t.functionDeclaration(id, params, toBlockStatement(body), generator, async)~atNode(node)
+    | else:
+      t.functionExpression(id, params, toBlockStatement(body), generator, async)~atNode(node)
 
   if node.returnType: nextNode.returnType = node.returnType
   if node.typeParameters: nextNode.typeParameters = node.typeParameters
@@ -42,48 +45,51 @@ export replaceWithPlainFunction(path) ->
 // `ArrowFunctionExpression`
 export toArrowFunction(node) ->
   let { id, params, body, async } = node
+  fn = t.arrowFunctionExpression(params, body, async)~atNode(node)
+  if node.returnType: fn.returnType = node.returnType
+  if node.typeParameters: fn.typeParameters = node.typeParameters
 
-  if (is("Statement", node)) {
-    let fn = t.arrowFunctionExpression(params, body, async);
-    if (node.returnType) fn.returnType = node.returnType;
-    if (node.typeParameters) fn.typeParameters = node.typeParameters;
-    return t.variableDeclaration("const", [t.variableDeclarator(id, fn)]);
-  } else {
-    // just throw away the id for now...
-    // TODO: think of a way to use it? or outlaw named fat-arrow expressions?
-    let fn = t.arrowFunctionExpression(params, body, async);
-    if (node.returnType) fn.returnType = node.returnType;
-    if (node.typeParameters) fn.typeParameters = node.typeParameters;
-    return fn;
-  }
+  if node~isa("Statement"):
+    t.variableDeclaration("const",
+      [t.variableDeclarator(id, fn)~atNode(node)]
+    )~atNode(node)
+  else:
+    fn
 
 export replaceWithArrowFunction(path) ->
   path.replaceWith(toArrowFunction(path.node))
 
 // Replace a functional node with a new node binding the function to `this`.
 export replaceWithBoundFunction(path) ->
-  if is("Statement", path.node):
+  { node } = path
+  loc = node~getLoc()
+  if path.node~isa("Statement"):
     // function f() {...}
     // f = f.bind(this)
-    replaceWithPlainFunction(path);
+    replaceWithPlainFunction(path)
 
-    const bound = t.callExpression(
-      t.memberExpression(path.node.id, t.identifier("bind")),
-      [t.thisExpression()]
-    );
-    const assignToBound = t.expressionStatement(t.assignmentExpression("=",
-      path.node.id,
-      bound
-    ))
+    assignToBound = t.assignmentExpression("=",
+      path.node.id
+      t.callExpression(
+        t.memberExpression(
+          path.node.id
+          t.identifier("bind")~atLoc(loc)
+        )~atLoc(loc)
+        [t.thisExpression()~atLoc(loc)]
+      )~atLoc(loc)
+    )~atLoc(loc)
 
     path.insertAfter(assignToBound)
   else:
     // (function f() {...}).bind(this)
-    const unbound = toPlainFunction(path.node);
-    const bound = t.callExpression(
-      t.memberExpression(unbound, t.identifier("bind")),
-      [t.thisExpression()]
-    );
+    bound = t.callExpression(
+      t.memberExpression(
+        toPlainFunction(path.node)
+        t.identifier("bind")~atLoc(loc)
+      )~atLoc(loc)
+      [t.thisExpression()~atLoc(loc)]
+    )~atLoc(loc)
+
     path.replaceWith(bound)
 
 export isNamedArrowFunction(node) ->

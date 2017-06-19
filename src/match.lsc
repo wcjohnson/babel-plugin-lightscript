@@ -7,26 +7,7 @@ import { createAndExpression as And, createOrExpression as Or } from './logical'
 import { runtime } from './runtime'
 import { checkFalsePositiveReference } from './variables'
 
-import getLoc from 'ast-loc-utils/lib/getLoc'
-import atLoc from 'ast-loc-utils/lib/placeAtLoc'
-import atNode from 'ast-loc-utils/lib/placeAtNode'
-import getSurroundingLoc from 'ast-loc-utils/lib/getSurroundingLoc'
-import span from 'ast-loc-utils/lib/span'
-
-// TODO: factor this out to ast-loc-utils
-_traverse(src, visit) ->
-  visit(src)
-  for const key in src:
-    if key[0] === "_": continue
-    val = src[key]
-    if val:
-      if val.type:
-        _traverse(val, visit)
-      elif Array.isArray(val):
-        for elem e in val:
-          _traverse(e, visit)
-
-  src
+import { getLoc, placeAtLoc as atLoc, placeAtNode as atNode, getSurroundingLoc, span, traverse } from 'ast-loc-utils'
 
 isUndefined(node) ->
   node.type == "Identifier" and node.name == "undefined"
@@ -43,7 +24,7 @@ transformGuardId(idPath, bindingAccessors) ->
   if bindingAccessors[node.name]:
     loc = node~getLoc()
     replacement = bindingAccessors[node.name]~t.cloneDeep()
-    _traverse(replacement, (n) ->
+    traverse(replacement, (n) ->
       // Prevent infinite recursion
       if n.type == "Identifier": n._guardWasTransformed = true
       n~atLoc(loc)

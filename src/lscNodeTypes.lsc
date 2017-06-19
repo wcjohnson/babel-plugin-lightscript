@@ -87,6 +87,7 @@ export registerLightscriptNodeTypes(t): void ->
   });
 
   definePluginType("LoopComprehension", {
+    builder: ["loop"]
     visitor: ["loop"]
     aliases: ["Comprehension"]
     fields: {
@@ -307,6 +308,10 @@ export registerLightscriptNodeTypes(t): void ->
       }
       assertive: {
         validate: assertValueType("boolean")
+        optional: true
+      }
+      innerGuard: {
+        validate: assertNodeType("Expression")
         optional: true
       }
       consequent: {

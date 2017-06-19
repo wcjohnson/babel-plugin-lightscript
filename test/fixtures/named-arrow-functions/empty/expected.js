@@ -1,8 +1,6 @@
 function f() {
   return;
-}
-
-function g() {
+}function g() {
   return () => {
     return;
   };
