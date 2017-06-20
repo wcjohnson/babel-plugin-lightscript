@@ -1,6 +1,6 @@
 {
   "plugins": [
-    "@oigroup/babel-plugin-lightscript-self-host",
+    "@oigroup/babel-plugin-lightscript",
     "add-module-exports",
     "transform-flow-strip-types"
   ],
