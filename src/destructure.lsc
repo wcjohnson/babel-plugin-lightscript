@@ -14,6 +14,11 @@ export matchesDestructuringPattern(ref, pattern) ->
     | "ArrayPattern": ref~matchesArrayPattern(pattern)
     | "ObjectPattern": ref~matchesObjectPattern(pattern)
 
+export isNonEmptyPattern(pattern) ->
+  match pattern.type:
+    | "ArrayPattern": pattern.elements?.length > 0
+    | "ObjectPattern": pattern.properties?.length > 0
+
 ////////// Array pattern matching
 Bracket(array, i, element) ->
   t.memberExpression(
@@ -23,7 +28,7 @@ Bracket(array, i, element) ->
   )~atNode(element)
 
 HasLength(array, min, max, patternNode) ->
-  args = if max:
+  args = if max~looseNotEq(null):
     [ array, t.numericLiteral(min)~atNode(patternNode), t.numericLiteral(max)~atNode(patternNode) ]
   elif min > 0:
     [ array, t.numericLiteral(min)~atNode(patternNode) ]

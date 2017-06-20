@@ -2,7 +2,7 @@ import t from './types'
 import { toBlockStatement } from './blocks'
 import { isa } from './is'
 import { undeclaredRef } from './ref'
-import { matchesDestructuringPattern, accessors } from './destructure'
+import { matchesDestructuringPattern, accessors, isNonEmptyPattern } from './destructure'
 import { createAndExpression as And, createOrExpression as Or } from './logical'
 import { runtime } from './runtime'
 import { checkFalsePositiveReference } from './variables'
@@ -114,7 +114,7 @@ transformBoundConsequent({discriminantRef}, binding, consequent) ->
 
 transformMatchConsequent(mtch, casePath) ->
   { binding, consequent } = casePath.node
-  if binding:
+  if binding and binding~isNonEmptyPattern():
     mtch~transformBoundConsequent(binding, consequent)
   else:
     consequent~toBlockStatement()

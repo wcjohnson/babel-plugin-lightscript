@@ -5,10 +5,10 @@ assert.equal(
       "empty"
 )
 assert.equal(
-  "empty",
-  match []:
-    | with []:
-      "empty"
+  "nonempty",
+  match [1]:
+    | with []: "empty"
+    | with [first]: "nonempty"
 )
 assert.equal(
   undefined,
