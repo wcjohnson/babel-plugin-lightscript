@@ -28,39 +28,32 @@ Bracket(array, i, element) ->
   )~atNode(element)
 
 HasLength(array, min, max, patternNode) ->
-  args = if max~looseNotEq(null):
-    [ array, t.numericLiteral(min)~atNode(patternNode), t.numericLiteral(max)~atNode(patternNode) ]
-  elif min > 0:
-    [ array, t.numericLiteral(min)~atNode(patternNode) ]
-  else:
-    [ array ]
-
   t.callExpression(
     runtime('hasLength')~t.clone()~atNode(patternNode)
-    args
-  )
+    [
+      array
+      t.numericLiteral(min)~atNode(patternNode)
+      case max~looseNotEq(null): t.numericLiteral(max)~atNode(patternNode)
+    ]
+  )~atNode(patternNode)
 
 export matchesArrayPattern(array, arrayPattern) ->
   elements = arrayPattern.elements
 
+  // Determine min/max length of acceptable array
+  len = elements.length
   let minLength = 0
-  conditions = [for idx i, elem element in elements:
-    elementType = element?.type
+  maxLength = if len and elements[len - 1].type === "RestElement": null else: len
+  for let i = elements.length - 1; i >= 0; i--:
+    if elements[i].type != "AssignmentPattern" and elements[i].type != "RestElement":
+      now minLength = i + 1; break
 
-    // Check for mandatory elements
-    if elementType != "RestElement" and elementType != "AssignmentPattern":
-      now minLength = i + 1
-
-    if element and element~isDestructuringPattern():
-      array~Bracket(i, element)~matchesDestructuringPattern(element)
-  ]
-
-  maxLength = if not (elements.length > 0 and elements[elements.length - 1].type == "RestElement"): elements.length
-
-  // Length conditionals
-  conditions.unshift(array~HasLength(minLength, maxLength, arrayPattern))
-
-  And(conditions)
+  And([
+    array~HasLength(minLength, maxLength, arrayPattern)
+    for idx i, elem element in elements:
+      if element and element~isDestructuringPattern():
+        array~Bracket(i, element)~matchesDestructuringPattern(element)
+  ])
 
 ////////// Object pattern matching
 In(key, obj) ->
@@ -74,40 +67,38 @@ Dot(obj, key) ->
   t.memberExpression(obj, key)~atNode(key)
 
 HasProps(obj, patternNode, props) ->
-  args = props.slice()
-  args.unshift(obj)
   t.callExpression(
     runtime('hasProps')~t.clone()~atNode(patternNode)
-    args
+    [obj, ...props]
   )~atNode(patternNode)
 
 export matchesObjectPattern(obj, objectPattern) ->
   { properties } = objectPattern
+  And([
+    // _hasProps(_obj, ...)
+    obj~HasProps(objectPattern, [
+      for elem property in properties:
+        if property~isa("ObjectProperty"):
+          { key, value } = property
+          if (not value~isa("AssignmentPattern") and key~isa("Identifier")):
+            t.stringLiteral(key.name)~atNode(key)
+    ])
 
-  // _hasProps(_obj, ...)
-  conditions = [obj~HasProps(objectPattern, [
+    // Conditions for nested patterns.
+    // Destructuring patterns get a nested match. Defaulted items get a nested match
+    // only if a default is not present.
     for elem property in properties:
       if property~isa("ObjectProperty"):
         { key, value } = property
-        if (not value~isa("AssignmentPattern") and key~isa("Identifier")):
-          t.stringLiteral(key.name)~atNode(key)
-  ])]
-
-  // Conditions for nested patterns
-  nestedConditions = [for elem property in properties:
-    if property~isa("ObjectProperty"):
-      { key, value } = property
-      match value:
-        | as {type, left} if type == "AssignmentPattern" and left~isDestructuringPattern():
-          Or(
-            Not(key~In(obj))
-            obj~Dot(key)~matchesDestructuringPattern(left)
-          )
-        | ~isDestructuringPattern():
-          obj~Dot(key)~matchesDestructuringPattern(value)
-  ]
-
-  And(conditions.concat(nestedConditions))
+        match value:
+          | as {type, left} if type == "AssignmentPattern" and left~isDestructuringPattern():
+            Or(
+              Not(key~In(obj))
+              obj~Dot(key)~matchesDestructuringPattern(left)
+            )
+          | ~isDestructuringPattern():
+            obj~Dot(key)~matchesDestructuringPattern(value)
+  ])
 
 ////////// "Restructuring" after a destructure
 export toRestructureExpression(pattern) ->

@@ -82,26 +82,23 @@ transformAtoms(mtch, atomPaths) ->
 transformMatchTest(mtch, casePath) ->
   { outerGuard, atoms, binding, assertive, innerGuard } = casePath.node
   { discriminantRef } = mtch
-  conditions = []
 
-  if outerGuard:
-    conditions.push(outerGuard)
-  if atoms and atoms.length > 0:
-    conditions.push(mtch~transformAtoms(casePath.get("atoms")))
-  if binding and assertive:
-    conditions.push(discriminantRef~matchesDestructuringPattern(binding))
-  if innerGuard:
-    if binding:
-      // Transform referenced identifiers in the inner guard into accessors
-      // into the matched pattern.
-      const bindingAccessors = {}
-      binding~accessors(discriminantRef, bindingAccessors)
-      nextInnerGuard = mtch~transformInnerGuard(casePath.get("innerGuard"), bindingAccessors)
-      conditions.push(nextInnerGuard)
-    else:
-      conditions.push(innerGuard)
-
-  And(conditions)
+  And([
+    case outerGuard: outerGuard
+    case atoms and atoms.length > 0:
+      mtch~transformAtoms(casePath.get("atoms"))
+    case binding and assertive:
+      discriminantRef~matchesDestructuringPattern(binding)
+    case innerGuard:
+      if binding:
+        // Transform referenced identifiers in the inner guard into accessors
+        // into the matched pattern.
+        const bindingAccessors = {}
+        binding~accessors(discriminantRef, bindingAccessors)
+        mtch~transformInnerGuard(casePath.get("innerGuard"), bindingAccessors)
+      else:
+        innerGuard
+  ])
 
 transformBoundConsequent({discriminantRef}, binding, consequent) ->
   block = toBlockStatement(consequent)

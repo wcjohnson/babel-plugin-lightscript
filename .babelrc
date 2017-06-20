@@ -3,7 +3,12 @@
     [
       "@oigroup/babel-plugin-lightscript-self-host",
       {
-        "existential": true
+        "existential": true,
+        "safeCall": true,
+        "bangCall": true,
+        "enhancedComprehension": true,
+        "noEnforcedSubscriptIndentation": true,
+        "flippedImports": true
       }
     ],
     "add-module-exports",
