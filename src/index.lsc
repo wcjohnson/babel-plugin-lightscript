@@ -1,0 +1,397 @@
+import is from "./is"
+
+import { placeAtNode as atNode, placeTreeAtLocWhenUnplaced as allAtLoc, getLoc, placeAtLoc as atLoc, getSurroundingLoc } from 'ast-loc-utils'
+
+import {
+  addImplicitReturns, replaceWithPlainFunction, replaceWithArrowFunction,
+  replaceWithBoundFunction, isNamedArrowFunction
+} from "./functions";
+import { blockToExpression, toBlockStatement, iife } from "./blocks";
+import { getShadowingIdentifiers, checkFalsePositiveReference } from "./variables";
+import { ensureConstructor, bindMethodsInConstructor } from "./classes";
+import * as matching from "./match";
+import * as comprehension from "./comprehension";
+import { replaceWithSafeCall, transformSafeMemberExpression, transformExistentialExpression } from "./safe";
+import { replaceWithInlinedOperator } from "./inlinedOperators";
+import { transformForInArrayStatement, transformForInObjectStatement, lintForInArrayStatement, lintForInObjectStatement } from "./for";
+import { resetHelpers } from "./helpers";
+import { markIdentifier } from "./stdlib";
+import { locatePluginOpts, getParserOpts } from './config'
+import { getFileTypeInfo, createCompilerState, initializeCompilerState, postprocess } from './compilerState'
+
+Lightscript(babel) ->
+  const { types: t } = babel;
+
+  // HELPER FUNCTIONS
+  function bindMethods(path, methodIds) {
+    let assignId, inExpression = false;
+    if (path.isClassDeclaration()) {
+      now assignId = path.node.id;
+    } else if (
+      path.parentPath.isAssignmentExpression() &&
+      path.parentPath.parentPath.isExpressionStatement()
+    ) {
+      now assignId = path.parentPath.node.left;
+    } else if (path.parentPath.isVariableDeclarator()) {
+      now assignId = path.parentPath.node.id;
+    } else {
+      let id = path.isClass() ? "class" : "obj";
+      now assignId = path.getStatementParent().scope.generateDeclaredUidIdentifier(id);
+      now inExpression = true;
+    }
+    t.assertOneOf(assignId, ["Identifier", "MemberExpression"]);
+
+    let assignments = methodIds.map((methodId) => {
+      // could be computed, eg `['blah']() => {}`
+      t.assertOneOf(methodId, ["Identifier", "Expression"]);
+      let isComputed = !t.isIdentifier(methodId);
+      let objDotMethod = t.memberExpression(assignId, methodId, isComputed);
+      let bind = t.callExpression(
+        t.memberExpression(objDotMethod, t.identifier("bind")),
+        [assignId]
+      );
+      return t.assignmentExpression("=", objDotMethod, bind);
+    });
+
+    if (inExpression) {
+      path.replaceWith(t.sequenceExpression([
+        t.assignmentExpression("=", assignId, path.node),
+        ...assignments,
+        assignId
+      ]));
+    } else {
+      path.getStatementParent().insertAfter(
+        assignments.map((a) => t.expressionStatement(a))
+      );
+    }
+  }
+
+  // traverse as top-level item so as to run before other babel plugins
+  // (and avoid traversing any of their output)
+  function Program(path, state): void {
+    opts = state.opts
+    compilerState = createCompilerState({
+      programPath: path
+      babel
+      opts
+      file: state.file
+    })
+
+    if (!compilerState.isLightScript) return
+
+    initializeCompilerState()
+
+    // TODO: helpers -> compilerState
+    resetHelpers(path);
+
+    path.traverse({
+
+      ForInArrayStatement(path): void ->
+        if opts.__linter:
+          lintForInArrayStatement(path)
+        else:
+          transformForInArrayStatement(path)
+
+      ForInObjectStatement(path): void ->
+        if opts.__linter:
+          lintForInObjectStatement(path)
+        else:
+          transformForInObjectStatement(path);
+
+      ArrayComprehension(path): void ->
+        if opts.enhancedComprehension:
+          comprehension.transformArrayComprehension(path)
+        else:
+          // Shim V1 onto V2
+          { node } = path
+          { loop } = node
+          if loop:
+            delete node.loop
+            // TODO: fix babel patch so there's a builder for this...
+            node.elements = [ {
+              type: "LoopComprehension"
+              loop
+            }~atNode(node) ]
+            path.replaceWith(node)
+            comprehension.transformArrayComprehension(path)
+
+
+      ObjectComprehension(path): void ->
+        if opts.enhancedComprehension:
+          comprehension.transformObjectComprehension(path)
+        else:
+          // Shim V1 onto V2
+          { node } = path
+          { loop } = node
+          if loop:
+            delete node.loop
+            // TODO: fix babel patch so there's a builder for this...
+            node.properties = [ {
+              type: "LoopComprehension"
+              loop
+            }~atNode(node) ]
+            path.replaceWith(node)
+            comprehension.transformObjectComprehension(path)
+
+      TildeCallExpression: {
+        // run on exit instead of enter so that SafeMemberExpression
+        // can process differently from a wrapping CallExpression
+        // eg; `a?.b~c()` -> `a == null ? null : c(a.b)`
+        exit(path): void ->
+          { node } = path
+          args = [ node.left, ...node.arguments ]
+          callExpr = t.callExpression(node.right, args)~atNode(node)
+
+          if (
+            compilerState.inlinedOperatorsEnabled &&
+            path~replaceWithInlinedOperator(path.node.right, args)
+          ) return;
+
+          if (path.node.safe):
+            path~replaceWithSafeCall(callExpr);
+          else:
+            path.replaceWith(callExpr);
+      }
+
+      CallExpression: {
+        exit(path): void {
+          if (
+            compilerState.inlinedOperatorsEnabled &&
+            replaceWithInlinedOperator(path, path.node.callee, path.node.arguments)
+          ) return;
+          if (path.node.safe) {
+            replaceWithSafeCall(path, path.node);
+          }
+        }
+      },
+
+      NamedArrowFunction(path): void {
+        if (path.node.skinny) {
+          replaceWithPlainFunction(path);
+        } else if (path.node.generator) {
+          // there are no arrow-generators in ES6, so can't compile to arrow
+          replaceWithBoundFunction(path);
+        } else {
+          replaceWithArrowFunction(path);
+        }
+      },
+
+      NamedArrowMemberExpression(path): void {
+        let object = path.node.object;
+        let node = path.node;
+        delete node.object;
+        node.type = "NamedArrowExpression";
+
+        if (!node.skinny) {
+          node.skinny = true;  // binding here, don't turn into arrow
+          now node = t.callExpression(
+            t.memberExpression(node, t.identifier("bind")),
+            [object]
+          )~allAtLoc(getLoc(object))
+        }
+
+        path.replaceWith(t.assignmentExpression("=",
+          t.memberExpression(object, path.node.id)~atLoc(getSurroundingLoc([object, path.node.id]))
+          node
+        )~atNode(node));
+      },
+
+      ArrowFunctionExpression(path): void {
+        if (path.node.skinny) {
+          replaceWithPlainFunction(path);
+        } else if (path.node.generator) {
+          replaceWithBoundFunction(path);
+        }
+      },
+
+      Method(path): void {
+        if (isNamedArrowFunction(path.node)) {
+          // XXX: non-idiomatic ast mutation, could cause problems...
+          path.node.body = toBlockStatement(path.node.body);
+        }
+      },
+
+      ClassBody(path): void {
+        let fatArrows = [], fatStaticArrows = [], constructorPath;
+        path.node.body.forEach((method, i) => {
+          if (!t.isMethod(method)) return;
+
+          if (method.kind === "constructor") {
+            now constructorPath = path.get(`body.${i}.body`);
+          } else if (method.static && method.skinny === false) {
+            fatStaticArrows.push(method.key);
+            method.skinny = true; // prevent infinite recursion
+          } else if (method.skinny === false) {
+            fatArrows.push(method.key);
+            method.skinny = true; // prevent infinite recursion
+          }
+        });
+
+        let maybeAddSuper = path.parentPath.node.superClass && constructorPath;
+        if (fatArrows.length || maybeAddSuper) {
+          now constructorPath = ensureConstructor(path.parentPath, constructorPath, true);
+        }
+
+        if (fatArrows.length) {
+          bindMethodsInConstructor(path.parentPath, constructorPath, fatArrows);
+        }
+
+        if (fatStaticArrows.length) {
+          bindMethods(path.parentPath, fatStaticArrows);
+        }
+      },
+
+      ObjectExpression(path): void {
+        let fatArrows = [];
+        path.node.properties.forEach((prop) => {
+          if (t.isMethod(prop) && prop.skinny === false) {
+            fatArrows.push(prop.key);
+            // bit ugly, but need a way to ensure we don't double-recurse...
+            prop.skinny = true;
+          }
+        });
+
+        if (fatArrows.length) {
+          bindMethods(path, fatArrows);
+        }
+      },
+
+      Function: {
+        exit(path): void {
+          addImplicitReturns(path);
+
+          // As this is an exit visitor, other LSC transforms have reduced
+          // arrows to plain FunctionDeclarations by this point.
+          if (path.node.type === "FunctionDeclaration") {
+            // somehow this wasn't being done... may signal deeper issues...
+            path.getFunctionParent().scope.registerDeclaration(path);
+          }
+        }
+      },
+
+      IfExpression(path): void {
+        // TODO: better source mapping here -- place implicit null at end of consequent?
+        const consequent = blockToExpression(path.get("consequent"));
+
+        let alternate;
+        if (path.node.alternate) {
+          now alternate = blockToExpression(path.get("alternate"));
+        } else {
+          now alternate = t.nullLiteral()~atNode(path.node);
+        }
+
+        path.replaceWith(t.conditionalExpression(path.node.test, consequent, alternate)~atNode(path.node));
+      },
+
+      AssignmentExpression(path): void {
+        if (path.node.operator === "<-" || path.node.operator === "<!-") {
+          path.node.operator = "=";
+        }
+
+        // TODO: consider enforcing `now` for MemberExpression too
+        if (is("MemberExpression", path.node.left)) return;
+
+        if (path.node.isNowAssign === false) {
+          throw path.buildCodeFrameError(
+            "Incorrect assignment: to reassign, use `now`; to assign as `const`, put on its own line."
+          );
+        }
+      },
+
+      SafeAwaitExpression(path): void ->
+        const errId = path.scope.generateUidIdentifier("err");
+        awaitIife = iife(
+          t.tryStatement(
+            t.blockStatement([
+              t.returnStatement(t.awaitExpression(path.node.argument))
+            ]),
+            t.catchClause(errId, t.blockStatement([
+              t.returnStatement(errId)
+            ]))
+          )
+          true
+        )
+
+        // TODO: returntype annotation
+        awaitExpr = t.awaitExpression(awaitIife)~allAtLoc(getLoc(path.node))
+        path.replaceWith(awaitExpr)
+
+      SafeMemberExpression(path): void ->
+        transformSafeMemberExpression(path)
+
+      AwaitExpression(path): void {
+        if (path.get("argument").isArrayExpression() || path.node.argument.type === "ArrayComprehension") {
+          const promiseDotAllCall = t.callExpression(
+            t.memberExpression(t.identifier("Promise"), t.identifier("all")),
+            [path.node.argument],
+          );
+          path.get("argument").replaceWith(promiseDotAllCall);
+        }
+      },
+
+      VariableDeclaration(path): void {
+        // Error on auto-const when shadowing variable
+        if (path.node.kind === "const") {
+          if (path.node.extra && path.node.extra.implicit === true) {
+            const id = getShadowingIdentifiers(path)[0];
+            if (id) {
+              throw path.buildCodeFrameError(
+                `\`${id.name}\` is shadowed from a higher scope. ` +
+                `If you want to reassign the variable, use \`now ${id.name} = ...\`. ` +
+                "If you want to declare a new shadowed \`const\` variable, " +
+                `you must use \`const ${id.name} = ...\` explicitly.`
+              );
+            }
+          }
+        }
+      },
+
+      // collect functions to be imported for the stdlib
+      ReferencedIdentifier(path): void ->
+        if not checkFalsePositiveReference(path):
+          compilerState.stdlib~markIdentifier(path)
+
+      ExistentialExpression(path): void {
+        transformExistentialExpression(path);
+      },
+
+      MatchExpression(path): void ->
+        matching.transformMatchExpression(path)
+        // match opts.patternMatching:
+        //   | "v3": match_v3.transformMatchExpression(path)
+        //   | else: match_v4.transformMatchExpression(path)
+
+      MatchStatement(path): void ->
+        matching.transformMatchStatement(path)
+        // match opts.patternMatching:
+        //   | "v3": match_v3.transformMatchStatement(path)
+        //   | else: match_v4.transformMatchStatement(path)
+    });
+
+    compilerState~postprocess()
+  }
+
+  visitor = {
+    Program
+  }
+
+  plugin = {
+    manipulateOptions(opts, parserOpts, file) {
+      fileTypeInfo = getFileTypeInfo(file)
+      if not fileTypeInfo.isLightScript: return
+
+      pluginOpts = locatePluginOpts(opts, plugin)
+
+      // Set parser to LightScript mode
+      opts.parserOpts = opts.parserOpts or {}
+      nextParserOpts = getParserOpts(pluginOpts, opts.parserOpts)
+      parserOpts.parse = nextParserOpts.parse
+      parserOpts.plugins = nextParserOpts.plugins
+    },
+
+    visitor
+  }
+
+  plugin
+
+export default Lightscript

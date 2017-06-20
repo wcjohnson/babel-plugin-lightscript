@@ -1,3 +1,3 @@
-f() ->
+f() -> return
 
-g() -> h() =>
+g() -> h() => return

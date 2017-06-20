@@ -1,0 +1,80 @@
+import t from './types'
+import is, { isa } from './is'
+
+import { getLoc, buildAtLoc, getSurroundingLoc, placeAtLoc as atLoc } from 'ast-loc-utils'
+
+export toBlockStatement(body) ->
+  bodyLoc = getLoc(body)
+  match body:
+    | not ?: throw new Error("toBlockStatement: invalid node type")
+    | ~isa("BlockStatement"): body
+    | ~isa("Statement"): buildAtLoc(bodyLoc, t.blockStatement, [body])
+    | else: buildAtLoc(bodyLoc, t.blockStatement, [
+        buildAtLoc(bodyLoc, t.expressionStatement, body)
+      ])
+
+export toStatement(body) ->
+  match body:
+    | not ?: throw new Error("toStatement: invalid node type")
+    | ~isa("Expression"):
+      buildAtLoc(getLoc(body), t.expressionStatement, body)
+    | else: body
+
+export toFunctionBody(body) ->
+  match body:
+    | ~isa("Expression"): body
+    | else: toBlockStatement(body)
+
+export ensureBlockBody(path) ->
+  if !is("BlockStatement", path.node.body):
+    path.get("body").replaceWith(
+      buildAtLoc(getLoc(path.node.body), t.blockStatement, [path.node.body])
+    );
+
+export blockToExpression(path) ->
+  node = path.node
+  match node:
+    | ~isa("BlockStatement"):
+      path.canSwapBetweenExpressionAndStatement = () => true
+      // XXX: source maps - this code is inside babel and makes unmapped
+      // nodes.
+      path.replaceExpressionWithStatements(path.node.body)
+      path.node
+    | ~isa("FunctionDeclaration"):
+      // Special case: the parser promotes a block consisting of a single declaration
+      // from ExprStatement(FunctionExpr) to FunctionDeclaration. Convert back to
+      // expression here.
+      nextNode = t.clone(node)
+      if nextNode.type === "NamedArrowDeclaration":
+        nextNode.type = "NamedArrowExpression";
+      else:
+        nextNode.type = "FunctionExpression";
+      nextNode
+    | ~isa("ExpressionStatement"):
+      node.expression
+    | else:
+      node
+
+export getScopeParent(path) ->
+  path.findParent((path) ->
+    path.isFunction() or path.isBlockStatement() or path.isProgram()
+  )
+
+export iife(body, async = false) ->
+  actualBody = if Array.isArray(body):
+    bodyLoc = getSurroundingLoc(body)
+    t.blockStatement(body)~atLoc(bodyLoc)
+  else:
+    body~toBlockStatement()
+
+  loc = actualBody~getLoc()
+
+  t.callExpression(
+    t.arrowFunctionExpression(
+      []
+      actualBody
+      async
+    )~atLoc(loc)
+    []
+  )~atLoc(loc)
+

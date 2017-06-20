@@ -1,7 +1,6 @@
-result = match slowRunningFunction():
-  | ~isObject() with ({a, b}) -> a + b
-  | ~isArray() and .length > 0 with ([first]) -> first
-  | ?(safeArg): "it was a function and it returned truthy"
-  | not ~test(): "fails my test"
-  | ?: "exists"
-  | else: throw new Error("something wicked this way comes")
+match x:
+  | Atom: 1
+  | ~Predicate(): 2
+  | if preGuard when /regex/: 3
+  | ~Predicate() with { pattern }: 4
+  | if Preguard when ~Predicate1() and ~Predicate2(), String as { x } if x > 4: 5

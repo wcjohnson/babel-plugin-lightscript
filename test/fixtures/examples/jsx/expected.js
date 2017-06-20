@@ -1,12 +1,9 @@
 function otherCondition() {
   return true;
-}
-
-const ThingsList1 = ({ things, selectedId }) => {
+}const ThingsList1 = ({ things, selectedId }) => {
   return <ul>
     {(() => {
-      const _arr = [];
-      for (const thing of things) {
+      const _arr = [];for (const thing of things) {
         if (thing.id === selectedId && otherCondition()) {
           _arr.push(<SpecialThing thing={thing} />);
         } else {
@@ -15,9 +12,7 @@ const ThingsList1 = ({ things, selectedId }) => {
       }return _arr;
     })()}
   </ul>;
-};
-
-const ThingsList2 = ({ things, selectedId }) => {
+};const ThingsList2 = ({ things, selectedId }) => {
   return <ul>
     {things.map(function (thing) {
       if (thing.id === selectedId && otherCondition()) {
@@ -27,23 +22,18 @@ const ThingsList2 = ({ things, selectedId }) => {
       }
     })}
   </ul>;
-};
-
-const ThingsList3 = ({ things, selectedId }) => {
+};const ThingsList3 = ({ things, selectedId }) => {
   return <ul>
     {(() => {
       const _arr2 = [];
-
       for (let _i = 0, _len = things.length; _i < _len; _i++) {
         const thing = things[_i];
-
         if (thing.id === selectedId && otherCondition()) {
           _arr2.push(<SpecialThing thing={thing} />);
         } else {
           _arr2.push(<Thing thing={thing} />);
         }
       }
-
       return _arr2;
     })()}
   </ul>;

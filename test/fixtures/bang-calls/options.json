@@ -1,0 +1,9 @@
+{
+  "plugins": [
+    ["lightscript", {
+      "bangCall": true,
+      "safeCall": true
+    }]
+  ]
+}
+

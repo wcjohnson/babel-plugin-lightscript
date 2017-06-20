@@ -1,0 +1,3 @@
+{
+  "throws": "Ambiguous implicit `return` of multiple variables. Add an explicit `return` statement on the next line."
+}

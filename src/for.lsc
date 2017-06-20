@@ -1,0 +1,137 @@
+import t from './types'
+import { ensureBlockBody } from './blocks'
+import { undeclaredRef } from './ref'
+
+import { getLoc, placeAtLoc as atLoc, placeAtNode as atNode, span, placeTreeAtLocWhenUnplaced as allAtLoc, getSurroundingLoc } from 'ast-loc-utils'
+
+generateForInIterator(path, type: "array" | "object") ->
+  { node } = path
+  forKwdLoc = node~getLoc()~span(3)
+  iterable = node[type]
+  iterableLoc = iterable~getLoc()
+
+  idx = node.idx || path.scope.generateUidIdentifier("i")~t.clone()~atLoc(forKwdLoc)
+
+  // _i = 0
+  initDeclarations = [
+    t.variableDeclarator(idx, t.numericLiteral(0)~atNode(idx))~atNode(idx)
+  ]
+
+  // (_obj|_arr) = <expr>
+  { ref: iterableRef, declarator, isComplex } = undeclaredRef(path, iterable, type === "object" ? "obj" : "arr")
+  if isComplex: initDeclarations.unshift(declarator)
+
+  // _keys = Object.keys(_obj)
+  let keys;
+  if (type === "object") {
+    now keys = path.scope.generateUidIdentifier("keys")~t.clone()~atLoc(iterableLoc);
+    initDeclarations.push(
+      t.variableDeclarator(keys,
+        t.callExpression(
+          t.memberExpression(
+            t.identifier("Object")~atLoc(iterableLoc),
+            t.identifier("keys")~atLoc(iterableLoc)
+          )~atLoc(iterableLoc)
+          [iterableRef]
+        )~atLoc(iterableLoc)
+      )~atLoc(iterableLoc)
+    )
+  }
+
+  // _len = (_keys | _arr).length
+  len = path.scope.generateUidIdentifier("len")~t.clone()~atLoc(iterableLoc)
+  initDeclarations.push(
+    t.variableDeclarator(
+      len,
+      t.memberExpression(
+        type === "object" ? keys : iterableRef,
+        t.identifier("length")~atLoc(iterableLoc)
+      )~atLoc(iterableLoc)
+    )~atLoc(iterableLoc)
+  )
+
+  init = t.variableDeclaration("let", initDeclarations)~atLoc(forKwdLoc)
+  // _i < _len
+  test = t.binaryExpression("<", idx, len)~atLoc(forKwdLoc)
+  // _i++
+  update = t.updateExpression("++", idx)~atLoc(forKwdLoc)
+
+  ensureBlockBody(path)
+  innerDeclarations = []
+  if (type === "object") {
+    // _k = _keys[_i]
+    key = path.node.key || path.scope.generateUidIdentifier("k")~t.clone()~atLoc(iterableLoc)
+    innerDeclarations.push(
+      t.variableDeclaration("const", [
+        t.variableDeclarator(key,
+          t.memberExpression(keys, idx, true)
+        )
+      ])~allAtLoc(iterableLoc)
+    );
+
+    // val = _obj[_k]
+    if (path.node.val) {
+      innerDeclarations.push(
+        t.variableDeclaration("const", [
+          t.variableDeclarator(
+            path.node.val,
+            t.memberExpression(iterableRef, key, true)
+          )
+        ])~allAtLoc(iterableLoc)
+      )
+    }
+  } else {
+    // elem = _arr[_i]
+    if (path.node.elem) {
+      innerDeclarations.push(
+        t.variableDeclaration("const", [
+          t.variableDeclarator(
+            path.node.elem,
+            t.memberExpression(iterableRef, idx, true)
+          )
+        ])~allAtLoc(iterableLoc)
+      )
+    }
+  }
+
+  if (innerDeclarations.length > 0) {
+    path.get("body").unshiftContainer("body", innerDeclarations)
+  }
+
+  t.forStatement(init, test, update, path.node.body)~atNode(node)
+
+export transformForInArrayStatement(path) ->
+  path.replaceWith(generateForInIterator(path, "array"))
+
+export transformForInObjectStatement(path) ->
+  path.replaceWith(generateForInIterator(path, "object"))
+
+toPattern(lvalues) ->
+  now lvalues = lvalues.filter( x -> !!x )
+  loc = getSurroundingLoc(lvalues)
+  pattern = t.arrayPattern([])~atLoc(loc)
+  pattern.elements = lvalues
+
+  t.variableDeclaration("const", [
+    t.variableDeclarator(pattern)~atLoc(loc)
+  ])~atLoc(loc)
+
+export lintForInArrayStatement(path) ->
+  { node } = path
+  path.replaceWith(
+    t.forOfStatement(
+      toPattern([node.idx, node.elem])
+      node.array
+      node.body
+    )~atNode(node)
+  )
+
+export lintForInObjectStatement(path) ->
+  { node } = path
+  path.replaceWith(
+    t.forOfStatement(
+      toPattern([node.key, node.val])
+      node.object
+      node.body
+    )~atNode(node)
+  )

@@ -1,3 +1,6 @@
+import { getScopeParent } from './blocks'
+import { createImports, addImport, insertImports as ii } from './imports'
+
 export const everyLodashMethod = [
   "add",
   "after",
@@ -315,3 +318,36 @@ export const lodashImports = everyLodashMethod.reduce((obj, methodName) => {
 export const defaultImports = Object.assign({},
   lodashImports,
 );
+
+export initializeStdlib(opts) ->
+  symbols = if typeof(opts.stdlib) == "object":
+    Object.assign({},
+      opts.stdlib.lodash === false ? {} : lodashImports,
+    )
+  else:
+    defaultImports
+
+  {
+    enabled: opts.stdlib != false
+    symbols
+    imports: createImports()
+    useRequire: opts.stdlib and opts.stdlib.require == true
+  }
+
+export markIdentifier(stdlib, path) ->
+  if not stdlib.enabled: return
+
+  { node } = path
+  if stdlib.symbols[node.name]:
+    sp = path~getScopeParent()
+    if sp?.scope and (not sp.scope.hasBinding(node.name)):
+      stdlib~addImportSpecifier(node.name)
+
+export addImportSpecifier(stdlib, symbol) ->
+  const importPath = stdlib.symbols[symbol]
+  if not importPath: return
+  stdlib.imports~addImport(importPath + '/' + symbol, symbol)
+
+export insertImports(stdlib, path) ->
+  { useRequire } = stdlib
+  stdlib.imports~ii(path, useRequire)

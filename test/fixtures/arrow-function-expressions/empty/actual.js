@@ -1,11 +1,11 @@
-f = ->
+f = -> return
 
 g = -> -> 1
 
-h = f(->)
+h = f(-> return)
 
-i = =>
+i = => return
 
 j = -> => 1
 
-k = f(->, => ->, (x) ->, (y) =>)
+k = f(-> return, => -> return, (x) -> return, (y) => return)

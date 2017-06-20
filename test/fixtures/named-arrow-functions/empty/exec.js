@@ -1,4 +1,4 @@
-f() ->
+f() -> return
 
 assert(f() == undefined)
 

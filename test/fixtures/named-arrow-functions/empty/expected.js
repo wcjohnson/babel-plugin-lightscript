@@ -1,5 +1,7 @@
-function f() {}
-
-function g() {
-  return () => {};
+function f() {
+  return;
+}function g() {
+  return () => {
+    return;
+  };
 }

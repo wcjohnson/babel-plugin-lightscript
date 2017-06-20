@@ -1,0 +1,110 @@
+import patch from './util/babelTypesPatch'
+import { registerLightscriptNodeTypes } from './lscNodeTypes'
+import { initializeStdlib } from './stdlib'
+import { initializeRuntime } from './runtime'
+import { insertImports } from './imports'
+import { getInlinedOperatorsEnabled } from './inlinedOperators'
+
+import { getLoc, span } from 'ast-loc-utils'
+
+// Singleton object, unique per Program traversal, holding relevant state.
+let compilerState = {
+  // DI Babel instance. Avoid unless necessary; prefer types.lsc
+  babel: null
+
+  // Root program path
+  programPath: null
+
+  // Location mixin representing the first character in the file.
+  firstLoc: null
+
+  // Babel Plugin options
+  opts: null
+
+  // Babel file state entry
+  file: null
+
+  //// Preambles
+  // stdlib state
+  stdlib: null
+  // helpers state
+  helpers: null
+  // lightscript-runtime state
+  runtime: null
+
+  inlinedOperatorsEnabled: true
+  isLightScript: true
+  isLSX: false
+}
+
+export getCompilerState() -> compilerState
+
+export getBabel() -> compilerState.babel
+
+export getOptions() -> compilerState.opts
+
+export getFileTypeInfo(file) ->
+  if not file?.opts?.filename: return { isLightScript: true, isLSX: false}
+  filename = file.opts.filename
+
+  if filename.includes(".lsx"): return { isLightScript: true, isLSX: true }
+
+  if (
+    filename === "unknown" or // eslint
+    filename === "repl" or // babel-node
+    filename.includes(".lsc") or
+    filename.includes("test/fixtures")
+  ): return { isLightScript: true, isLSX: false }
+
+  return { isLightScript: false, isLSX: false }
+
+processFilename(state): void ->
+  Object.assign(state, getFileTypeInfo(state.file))
+
+// This will get the position of the first non-comment token. We place imports
+// and requires here because ESLint requires the corresponding string literals
+// to be on top of a valid token, or it chokes.
+findFirstTokenLoc(tokens) ->
+  if (not tokens) or (tokens.length == 0): return null
+
+  for elem t in tokens:
+    if t and (!t.type?.indexOf or t.type.indexOf("Comment") < 0): return getLoc(t)
+
+  return null
+
+export createCompilerState(initialState) ->
+  now compilerState = initialState
+  processFilename(compilerState)
+
+  // Get zero-location
+  tokens = initialState?.file?.ast?.tokens
+  body = initialState?.programPath?.node?.body
+  loc = findFirstTokenLoc(tokens)
+  if loc:
+    initialState.firstLoc = loc
+  elif body and body.length > 0:
+    initialState.firstLoc = getLoc(body[0])~span(1)
+  else:
+    initialState.firstLoc = {
+      start: 0
+      end: 1
+      loc: { start: { line: 1, column: 0 }, end: { line: 1, column: 1 } }
+    }
+
+  return compilerState
+
+export initializeCompilerState() ->
+  { babel, opts } = compilerState
+  patch(babel.types)
+  registerLightscriptNodeTypes(babel.types)
+
+  compilerState.stdlib = initializeStdlib(opts)
+  compilerState.inlinedOperatorsEnabled = getInlinedOperatorsEnabled(opts)
+  compilerState.runtime = initializeRuntime(opts)
+
+  compilerState
+
+export postprocess(state) ->
+  { stdlib, programPath, runtime } = state
+  stdlib.imports~insertImports(programPath, stdlib.useRequire or state.opts.useRequire)
+  runtime.imports~insertImports(programPath, state.opts.useRequire)

@@ -1,11 +1,12 @@
-var _ref;
-
-import isObject from "lodash/isObject";
-import isArray from "lodash/isArray";
-const result = (_ref = slowRunningFunction(), isObject(_ref) ? function ({ a, b }) {
-  return a + b;
-}(_ref) : isArray(_ref) && _ref.length > 0 ? function ([first]) {
-  return first;
-}(_ref) : (typeof _ref === "function" ? _ref(safeArg) : null) ? "it was a function and it returned truthy" : !test(_ref) ? "fails my test" : _ref != null ? "exists" : function () {
-  throw new Error("something wicked this way comes");
-}());
+const _isMatch = require("@oigroup/lightscript-runtime/isMatch");const _hasProps = require("@oigroup/lightscript-runtime/hasProps");
+if (_isMatch(Atom, x)) {
+  1;
+} else if (Predicate(x)) {
+  2;
+} else if (preGuard && _isMatch(/regex/, x)) {
+  3;
+} else if (Predicate(x) && _hasProps(x, "pattern")) {
+  const { pattern } = x;4;
+} else if (Preguard && (Predicate1(x) && Predicate2(x) || _isMatch(String, x)) && x.x > 4) {
+  const { x } = x;5;
+}

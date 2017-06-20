@@ -1,8 +1,4 @@
-import map from "lodash/map";
-
-function uniq() {
+import map from "lodash/map";function uniq() {
   return 1;
-}
-
-uniq();
+}uniq();
 map();
