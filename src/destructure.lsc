@@ -51,7 +51,7 @@ export matchesArrayPattern(array, arrayPattern) ->
     if elementType != "RestElement" and elementType != "AssignmentPattern":
       now minLength = i + 1
 
-    if element and isDestructuringPattern(element):
+    if element and element~isDestructuringPattern():
       array~Bracket(i, element)~matchesDestructuringPattern(element)
   ]
 
@@ -98,10 +98,10 @@ export matchesObjectPattern(obj, objectPattern) ->
     if property~isa("ObjectProperty"):
       { key, value } = property
       match value:
-        | .type == "AssignmentPattern" and isDestructuringPattern(.left):
+        | as {type, left} if type == "AssignmentPattern" and left~isDestructuringPattern():
           Or(
             Not(key~In(obj))
-            obj~Dot(key)~matchesDestructuringPattern(value.left)
+            obj~Dot(key)~matchesDestructuringPattern(left)
           )
         | ~isDestructuringPattern():
           obj~Dot(key)~matchesDestructuringPattern(value)
@@ -140,15 +140,15 @@ export toRestructureExpressionForObjectPattern(pattern) ->
       match property:
         | ~isa("RestProperty"):
           t.spreadProperty(property.argument)~atNode(property)
-        | .value~isDestructuringPattern():
+        | as {key, value} if value~isDestructuringPattern():
           t.objectProperty(
-            property.key
-            property.value~toRestructureExpression()
+            key
+            value~toRestructureExpression()
           )~atNode(property)
-        | .value~isa("AssignmentPattern"):
-          property.value~restructureObjAssignment(property.key)~atNode(property)
-        | .value~isa("Identifier"):
-          t.objectProperty(property.value, property.value, false, true)~atNode(property)
+        | as {key, value} if value~isa("AssignmentPattern"):
+          value~restructureObjAssignment(key)~atNode(property)
+        | as {value} if value~isa("Identifier"):
+          t.objectProperty(value, value, false, true)~atNode(property)
     ]
   )~atNode(pattern)
 

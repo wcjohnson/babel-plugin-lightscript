@@ -19,9 +19,9 @@ export getTails(path, allowLoops) ->
       add(path.get("alternate"))
     | ~isa("DoExpression"):
       add(path.get("body"))
-    | allowLoops and (~isa("For") or ~isa("While")):
+    | if allowLoops when ~isa("For"), ~isa("While"):
       add(path.get("body"))
-    | ~isa("Program") or ~isa("BlockStatement"):
+    | ~isa("Program"), ~isa("BlockStatement"):
       add(path.get("body").pop())
     | ~isa("TryStatement"):
       add(path.get("block"))
@@ -40,7 +40,7 @@ export transformTails(path, allowLoops, allowExprs, getNewNode) ->
 
   for elem tailPath in tailPaths:
     match tailPath:
-      | allowExprs and ~isa("Expression"):
+      | if allowExprs when ~isa("Expression"):
         tailPath.replaceWith(getNewNode(tailPath.node, tailPath))
       | ~isa("ExpressionStatement"):
         tailPath.replaceWith(getNewNode(tailPath.node.expression, tailPath)~toStatement())

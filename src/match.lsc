@@ -63,7 +63,7 @@ transformAtom(mtch, path) ->
       node.left = mtch~transformAtom(path.get("left"))
       node.right = mtch~transformAtom(path.get("right"))
       node
-    | ~isa("UnaryExpression") and .operator == "!":
+    | ~isa("UnaryExpression") as { operator } if operator == "!":
       node.argument = mtch~transformAtom(path.get("argument"))
       node
     | ~isStrictEqualityLiteral():
