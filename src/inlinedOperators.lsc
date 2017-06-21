@@ -1,15 +1,16 @@
 import t from './types'
+import { placeAtNode as atNode } from 'ast-loc-utils'
 
 inlinedOperator = {
-  looseEq: (t, args) => t.binaryExpression("==", args[0], args[1])
-  looseNotEq: (t, args) => t.binaryExpression("!=", args[0], args[1])
-  bitwiseNot: (t, args) => t.unaryExpression("~", args[0])
-  bitwiseAnd: (t, args) => t.binaryExpression("&", args[0], args[1])
-  bitwiseOr: (t, args) => t.binaryExpression("|", args[0], args[1])
-  bitwiseXor: (t, args) => t.binaryExpression("^", args[0], args[1])
-  bitwiseLeftShift: (t, args) => t.binaryExpression("<<", args[0], args[1])
-  bitwiseRightShift: (t, args) => t.binaryExpression(">>", args[0], args[1])
-  bitwiseZeroFillRightShift: (t, args) => t.binaryExpression(">>>", args[0], args[1])
+  looseEq: (args) => t.binaryExpression("==", args[0], args[1])
+  looseNotEq: (args) => t.binaryExpression("!=", args[0], args[1])
+  bitwiseNot: (args) => t.unaryExpression("~", args[0])
+  bitwiseAnd: (args) => t.binaryExpression("&", args[0], args[1])
+  bitwiseOr: (args) => t.binaryExpression("|", args[0], args[1])
+  bitwiseXor: (args) => t.binaryExpression("^", args[0], args[1])
+  bitwiseLeftShift: (args) => t.binaryExpression("<<", args[0], args[1])
+  bitwiseRightShift: (args) => t.binaryExpression(">>", args[0], args[1])
+  bitwiseZeroFillRightShift: (args) => t.binaryExpression(">>>", args[0], args[1])
 }
 
 export getInlinedOperatorsEnabled(opts) ->
@@ -19,5 +20,5 @@ export replaceWithInlinedOperator(path, callee, args) ->
   if (callee.type !== "Identifier") return false
   const name = callee.name
   if (!inlinedOperator[name] || path.scope.hasBinding(name) ) return false
-  path.replaceWith(inlinedOperator[name](t, args))
+  path.replaceWith(inlinedOperator[name](args)~atNode(path.node))
   return true
