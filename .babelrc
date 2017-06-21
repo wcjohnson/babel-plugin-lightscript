@@ -8,7 +8,8 @@
         "bangCall": true,
         "enhancedComprehension": true,
         "noEnforcedSubscriptIndentation": true,
-        "flippedImports": true
+        "flippedImports": true,
+        "disableJsx": true
       }
     ],
     "add-module-exports",
