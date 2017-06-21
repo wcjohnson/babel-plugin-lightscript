@@ -356,13 +356,13 @@ Lightscript(babel) ->
       },
 
       MatchExpression(path): void ->
-        matching.transformMatchExpression(path)
+        matching.transformMatchExpression(path, opts.__linter)
         // match opts.patternMatching:
         //   | "v3": match_v3.transformMatchExpression(path)
         //   | else: match_v4.transformMatchExpression(path)
 
       MatchStatement(path): void ->
-        matching.transformMatchStatement(path)
+        matching.transformMatchStatement(path, opts.__linter)
         // match opts.patternMatching:
         //   | "v3": match_v3.transformMatchStatement(path)
         //   | else: match_v4.transformMatchStatement(path)

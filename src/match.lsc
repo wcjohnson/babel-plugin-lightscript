@@ -7,7 +7,7 @@ import { createAndExpression as And, createOrExpression as Or } from './logical'
 import { runtime } from './runtime'
 import { checkFalsePositiveReference } from './variables'
 
-import { getLoc, placeAtLoc as atLoc, placeAtNode as atNode, getSurroundingLoc, span, traverse } from 'ast-loc-utils'
+import { getLoc, placeAtLoc as atLoc, placeAtNode as atNode, getSurroundingLoc, span, traverse, placeTreeAtLocWhenUnplaced as allAtLoc } from 'ast-loc-utils'
 
 isUndefined(node) ->
   node.type == "Identifier" and node.name == "undefined"
@@ -100,8 +100,18 @@ transformMatchTest(mtch, casePath) ->
         innerGuard
   ])
 
-transformBoundConsequent({discriminantRef}, binding, consequent) ->
+transformBoundConsequent({discriminantRef, isLinter}, binding, consequent, innerGuard) ->
   block = toBlockStatement(consequent)
+
+  // Linter: duplicate innerGuard inside consequent to quiet noUnusedVars errors.
+  if isLinter and innerGuard:
+    block.body.unshift(
+      t.ifStatement(
+        innerGuard~t.cloneDeep(),
+        t.expressionStatement(t.booleanLiteral(true))
+      )~allAtLoc(getLoc(innerGuard))
+    )
+
   block.body.unshift(
     t.variableDeclaration("const", [
       t.variableDeclarator(binding, discriminantRef)~atNode(binding)
@@ -110,17 +120,17 @@ transformBoundConsequent({discriminantRef}, binding, consequent) ->
   block
 
 transformMatchConsequent(mtch, casePath) ->
-  { binding, consequent } = casePath.node
+  { binding, consequent, innerGuard } = casePath.node
   if binding and binding~isNonEmptyPattern():
-    mtch~transformBoundConsequent(binding, consequent)
+    mtch~transformBoundConsequent(binding, consequent, innerGuard)
   else:
     consequent~toBlockStatement()
 
 transformMatchCase(mtch, casePath) ->
   c = casePath.node
   {
-    test: if c.outerGuard?.type != "MatchElse": mtch~transformMatchTest(casePath)
     consequent: mtch~transformMatchConsequent(casePath)
+    test: if c.outerGuard?.type != "MatchElse": mtch~transformMatchTest(casePath)
   }
 
 transformMatchCases(mtch, [casePath, ...rest]) ->
@@ -136,19 +146,20 @@ transformMatchCases(mtch, [casePath, ...rest]) ->
     consequent
 
 // Computed values needed in recursive descent.
-getMatchInfo(path, discriminantRef) ->
+getMatchInfo(path, discriminantRef, isLinter) ->
   { node } = path
   {
     path, node, discriminantRef
     // Track last case for source map positioning
     lastCase: node.cases[node.cases.length - 1]
+    isLinter
   }
 
-export transformMatchExpression(path) ->
+export transformMatchExpression(path, isLinter) ->
   { node } = path
 
   argRef = path.scope.generateUidIdentifier("it")~atLoc(getLoc(node)~span(1))
-  matchBody = getMatchInfo(path, argRef)~transformMatchCases(path.get("cases"))
+  matchBody = getMatchInfo(path, argRef, isLinter)~transformMatchCases(path.get("cases"))
 
   iife = t.callExpression(
     t.arrowFunctionExpression(
@@ -159,7 +170,7 @@ export transformMatchExpression(path) ->
 
   path.replaceWith(iife)
 
-export transformMatchStatement(path) ->
+export transformMatchStatement(path, isLinter) ->
   { discriminant } = path.node;
 
   { ref, declarator, isComplex } = undeclaredRef(path, discriminant, "it")
@@ -169,5 +180,5 @@ export transformMatchStatement(path) ->
     )
 
   path.replaceWith(
-    getMatchInfo(path, ref)~transformMatchCases(path.get("cases"))
+    getMatchInfo(path, ref, isLinter)~transformMatchCases(path.get("cases"))
   )
