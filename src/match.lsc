@@ -7,7 +7,11 @@ import { createAndExpression as And, createOrExpression as Or } from './logical'
 import { runtime } from './runtime'
 import { checkFalsePositiveReference } from './variables'
 
-import { getLoc, placeAtLoc as atLoc, placeAtNode as atNode, getSurroundingLoc, span, traverse, placeTreeAtLocWhenUnplaced as allAtLoc } from 'ast-loc-utils'
+import {
+  getLoc, placeAtLoc as atLoc, placeAtNode as atNode,
+  getSurroundingLoc, span, traverse,
+  placeTreeAtLocWhenUnplaced as allAtLoc
+} from 'ast-loc-utils'
 
 isUndefined(node) ->
   node.type == "Identifier" and node.name == "undefined"

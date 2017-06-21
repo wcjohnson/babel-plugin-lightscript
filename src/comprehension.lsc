@@ -159,3 +159,31 @@ export transformArrayComprehension(path): void ->
 
 export transformObjectComprehension(path): void ->
   transformComprehension(path, true)
+
+export transformPlainArrayComprehension(path): void ->
+  // Shim V1 onto V2
+  { node } = path
+  { loop } = node
+  if loop:
+    delete node.loop
+    // TODO: fix babel patch so there's a builder for this...
+    node.elements = [ {
+      type: "LoopComprehension"
+      loop
+    }~atNode(node) ]
+    path.replaceWith(node)
+    transformArrayComprehension(path)
+
+export transformPlainObjectComprehension(path): void ->
+  // Shim V1 onto V2
+  { node } = path
+  { loop } = node
+  if loop:
+    delete node.loop
+    // TODO: fix babel patch so there's a builder for this...
+    node.properties = [ {
+      type: "LoopComprehension"
+      loop
+    }~atNode(node) ]
+    path.replaceWith(node)
+    transformObjectComprehension(path)

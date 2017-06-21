@@ -1,5 +1,6 @@
 import t from './types'
 import { placeAtNode as atNode } from 'ast-loc-utils'
+import { getCompilerState } from './compilerState'
 
 inlinedOperator = {
   looseEq: (args) => t.binaryExpression("==", args[0], args[1])
@@ -17,8 +18,11 @@ export getInlinedOperatorsEnabled(opts) ->
   not ((opts.stdlib === false) or (typeof opts.stdlib === "object" && opts.stdlib.lightscript === false))
 
 export replaceWithInlinedOperator(path, callee, args) ->
-  if (callee.type !== "Identifier") return false
-  const name = callee.name
+  if(
+    !(getCompilerState().inlinedOperatorsEnabled) or
+    callee.type !== "Identifier"
+  ): return false
+  name = callee.name
   if (!inlinedOperator[name] || path.scope.hasBinding(name) ) return false
   path.replaceWith(inlinedOperator[name](args)~atNode(path.node))
   return true
