@@ -1,4 +1,4 @@
-import is from "./is"
+import is, { isa } from "./is"
 
 import { placeAtNode as atNode, placeTreeAtLocWhenUnplaced as allAtLoc, getLoc, placeAtLoc as atLoc, getSurroundingLoc } from 'ast-loc-utils'
 
@@ -8,7 +8,7 @@ import {
 } from "./functions";
 import { blockToExpression, toBlockStatement, iife } from "./blocks";
 import { getShadowingIdentifiers, checkFalsePositiveReference } from "./variables";
-import { ensureConstructor, bindMethodsInConstructor } from "./classes";
+import { ensureConstructor, bindMethodsInConstructor, bindMethods } from "./classes";
 import * as matching from "./match";
 import * as comprehension from "./comprehension";
 import { replaceWithSafeCall, transformSafeMemberExpression, transformExistentialExpression } from "./safe";
@@ -21,50 +21,6 @@ import { getFileTypeInfo, createCompilerState, initializeCompilerState, postproc
 
 Lightscript(babel) ->
   const { types: t } = babel;
-
-  // HELPER FUNCTIONS
-  function bindMethods(path, methodIds) {
-    let assignId, inExpression = false;
-    if (path.isClassDeclaration()) {
-      now assignId = path.node.id;
-    } else if (
-      path.parentPath.isAssignmentExpression() &&
-      path.parentPath.parentPath.isExpressionStatement()
-    ) {
-      now assignId = path.parentPath.node.left;
-    } else if (path.parentPath.isVariableDeclarator()) {
-      now assignId = path.parentPath.node.id;
-    } else {
-      let id = path.isClass() ? "class" : "obj";
-      now assignId = path.getStatementParent().scope.generateDeclaredUidIdentifier(id);
-      now inExpression = true;
-    }
-    t.assertOneOf(assignId, ["Identifier", "MemberExpression"]);
-
-    let assignments = methodIds.map((methodId) => {
-      // could be computed, eg `['blah']() => {}`
-      t.assertOneOf(methodId, ["Identifier", "Expression"]);
-      let isComputed = !t.isIdentifier(methodId);
-      let objDotMethod = t.memberExpression(assignId, methodId, isComputed);
-      let bind = t.callExpression(
-        t.memberExpression(objDotMethod, t.identifier("bind")),
-        [assignId]
-      );
-      return t.assignmentExpression("=", objDotMethod, bind);
-    });
-
-    if (inExpression) {
-      path.replaceWith(t.sequenceExpression([
-        t.assignmentExpression("=", assignId, path.node),
-        ...assignments,
-        assignId
-      ]));
-    } else {
-      path.getStatementParent().insertAfter(
-        assignments.map((a) => t.expressionStatement(a))
-      );
-    }
-  }
 
   // traverse as top-level item so as to run before other babel plugins
   // (and avoid traversing any of their output)
@@ -203,18 +159,14 @@ Lightscript(babel) ->
         }
 
       ObjectExpression(path): void ->
-        let fatArrows = [];
-        path.node.properties.forEach((prop) => {
-          if (t.isMethod(prop) && prop.skinny === false) {
-            fatArrows.push(prop.key);
-            // bit ugly, but need a way to ensure we don't double-recurse...
-            prop.skinny = true;
-          }
-        });
+        fatArrowKeys = [
+          for elem prop in path.node.properties:
+            if prop~isa("Method") and prop.skinny == false:
+              prop.skinny = true // prevent recursion
+              prop.key
+        ]
 
-        if (fatArrows.length) {
-          bindMethods(path, fatArrows);
-        }
+        if fatArrowKeys.length: bindMethods(path, fatArrowKeys)
 
       Function: {
         exit(path): void ->
@@ -231,28 +183,23 @@ Lightscript(babel) ->
         // TODO: better source mapping here -- place implicit null at end of consequent?
         const consequent = blockToExpression(path.get("consequent"));
 
-        let alternate;
-        if (path.node.alternate) {
-          now alternate = blockToExpression(path.get("alternate"));
-        } else {
-          now alternate = t.nullLiteral()~atNode(path.node);
-        }
+        alternate = if path.node.alternate:
+          blockToExpression(path.get("alternate"));
+        else:
+          t.nullLiteral()~atNode(path.node)
 
         path.replaceWith(t.conditionalExpression(path.node.test, consequent, alternate)~atNode(path.node));
 
       AssignmentExpression(path): void ->
-        if (path.node.operator === "<-" || path.node.operator === "<!-") {
-          path.node.operator = "=";
-        }
+        if (path.node.operator === "<-" || path.node.operator === "<!-"):
+          path.node.operator = "="
 
-        // TODO: consider enforcing `now` for MemberExpression too
-        if (is("MemberExpression", path.node.left)) return;
+        if is("MemberExpression", path.node.left): return
 
-        if (path.node.isNowAssign === false) {
+        if path.node.isNowAssign === false:
           throw path.buildCodeFrameError(
             "Incorrect assignment: to reassign, use `now`; to assign as `const`, put on its own line."
-          );
-        }
+          )
 
       SafeAwaitExpression(path): void ->
         const errId = path.scope.generateUidIdentifier("err");
@@ -264,7 +211,7 @@ Lightscript(babel) ->
             t.catchClause(errId, t.blockStatement([
               t.returnStatement(errId)
             ]))
-          )
+          )~allAtLoc(getLoc(path.node))
           true
         )
 

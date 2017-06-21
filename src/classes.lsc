@@ -111,3 +111,45 @@ export bindMethodsInConstructor(classPath, constructorPath, methodIds) ->
   } else {
     constructorPath.unshiftContainer("body", assignments);
   }
+
+export bindMethods(path, methodIds) ->
+  let assignId, inExpression = false;
+  if (path.isClassDeclaration()) {
+    now assignId = path.node.id;
+  } else if (
+    path.parentPath.isAssignmentExpression() &&
+    path.parentPath.parentPath.isExpressionStatement()
+  ) {
+    now assignId = path.parentPath.node.left;
+  } else if (path.parentPath.isVariableDeclarator()) {
+    now assignId = path.parentPath.node.id;
+  } else {
+    let id = path.isClass() ? "class" : "obj";
+    now assignId = path.getStatementParent().scope.generateDeclaredUidIdentifier(id);
+    now inExpression = true;
+  }
+  t.assertOneOf(assignId, ["Identifier", "MemberExpression"]);
+
+  let assignments = methodIds.map((methodId) => {
+    // could be computed, eg `['blah']() => {}`
+    t.assertOneOf(methodId, ["Identifier", "Expression"]);
+    let isComputed = !t.isIdentifier(methodId);
+    let objDotMethod = t.memberExpression(assignId, methodId, isComputed);
+    let bind = t.callExpression(
+      t.memberExpression(objDotMethod, t.identifier("bind")),
+      [assignId]
+    );
+    return t.assignmentExpression("=", objDotMethod, bind);
+  });
+
+  if (inExpression) {
+    path.replaceWith(t.sequenceExpression([
+      t.assignmentExpression("=", assignId, path.node),
+      ...assignments,
+      assignId
+    ]));
+  } else {
+    path.getStatementParent().insertAfter(
+      assignments.map((a) => t.expressionStatement(a))
+    );
+  }
