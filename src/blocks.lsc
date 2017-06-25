@@ -27,7 +27,7 @@ export ensureBlockBody(path) ->
   if !is("BlockStatement", path.node.body):
     path.get("body").replaceWith(
       buildAtLoc(getLoc(path.node.body), t.blockStatement, [path.node.body])
-    );
+    )
 
 export blockToExpression(path) ->
   node = path.node
