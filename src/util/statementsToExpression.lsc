@@ -1,0 +1,87 @@
+// Convert a series of statements to an expression.
+// Largely c/p from babel-types and babel-traverse.
+// Modified to add source mapping information to produced nodes.
+import t from '../types'
+import { iife } from '../blocks'
+import { isa } from '../is'
+
+buildUndefinedNode(scope) ->
+  if scope.hasBinding("undefined"):
+    t.unaryExpression("void", t.numericLiteral(0), true)
+  else:
+    t.identifier("undefined")
+
+// c/p https://github.com/babel/babel/blob/master/packages/babel-types/src/converters.js
+
+function gatherSequenceExpressions(nodes: Array<Object>, scope): ?Object {
+  exprs = []
+  let ensureLastUndefined = true;
+
+  for elem node in nodes {
+    now ensureLastUndefined = false
+
+    match node:
+      | ~isa("Expression"):
+        exprs.push(node)
+      | ~isa("ExpressionStatement"):
+        exprs.push(node.expression)
+      | ~isa("IfStatement") as { consequent, alternate, test }:
+        cq = consequent // XXX: https://github.com/lightscript/lightscript/issues/39
+        alt = alternate // XXX: https://github.com/lightscript/lightscript/issues/39
+        nextCq = consequent ? gatherSequenceExpressions([cq], scope) : scope~buildUndefinedNode()
+        nextAlt = alternate ? gatherSequenceExpressions([alt], scope) : scope~buildUndefinedNode()
+        if (!nextCq || !nextAlt) return
+
+        exprs.push(t.conditionalExpression(test, nextCq, nextAlt))
+      | ~isa("BlockStatement"):
+        body = gatherSequenceExpressions(node.body, scope)
+        if (!body) return
+        exprs.push(body)
+      | ~isa("EmptyStatement"):
+        now ensureLastUndefined = true
+      | else:
+        return
+  }
+
+  if (ensureLastUndefined) {
+    exprs.push(scope~buildUndefinedNode());
+  }
+
+  if (exprs.length === 1) {
+    return exprs[0];
+  } else {
+    return t.sequenceExpression(exprs);
+  }
+}
+
+toSequenceExpression(nodes: Array<Object>, scope): ?Object ->
+  if (!nodes || !nodes.length) return
+
+  declars = []
+  result = gatherSequenceExpressions(nodes, scope, declars)
+  if (!result) return
+
+  for elem declar in declars:
+    scope.push(declar)
+
+  result
+
+// c/p https://github.com/babel/babel/blob/1e55653ac173c3a59f403a7b5269cf6d143d32d9/packages/babel-traverse/src/path/replacement.js
+
+export default statementsToExpression(path, nodes: Array<Object>) ->
+  path.resync()
+
+  seqExpr = toSequenceExpression(nodes, path.scope);
+
+  if t.isSequenceExpression(seqExpr):
+    exprs = seqExpr.expressions
+
+    if exprs.length >= 2 && path.parentPath.isExpressionStatement():
+      path._maybePopFromStatements(exprs)
+
+    // could be just one element due to the previous maybe popping
+    if exprs.length === 1: exprs[0] else: seqExpr
+  elif seqExpr:
+    seqExpr
+  else:
+    iife(nodes)

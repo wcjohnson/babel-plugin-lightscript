@@ -1,3 +1,3 @@
-const x = true ? function () {
+const x = true ? (() => {
   throw new Error();
-}() : null;
+})() : null;

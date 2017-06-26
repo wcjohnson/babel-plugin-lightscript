@@ -1,5 +1,6 @@
 import t from './types'
 import is, { isa } from './is'
+import statementsToExpression from './util/statementsToExpression'
 
 import { getLoc, buildAtLoc, getSurroundingLoc, placeAtLoc as atLoc } from 'ast-loc-utils'
 
@@ -33,11 +34,7 @@ export blockToExpression(path) ->
   node = path.node
   match node:
     | ~isa("BlockStatement"):
-      path.canSwapBetweenExpressionAndStatement = () => true
-      // XXX: source maps - this code is inside babel and makes unmapped
-      // nodes.
-      path.replaceExpressionWithStatements(path.node.body)
-      path.node
+      statementsToExpression(path, path.node.body)
     | ~isa("FunctionDeclaration"):
       // Special case: the parser promotes a block consisting of a single declaration
       // from ExprStatement(FunctionExpr) to FunctionDeclaration. Convert back to
