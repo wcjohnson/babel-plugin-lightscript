@@ -19,10 +19,13 @@ export addImplicitReturns(functionPath) ->
   transform(expr, path) ->
     if path~isa("VariableDeclaration"):
       if path.node.declarations.length > 1:
-        throw path.buildCodeFrameError("Ambiguous implicit `return` of multiple variables. " + 
+        throw path.buildCodeFrameError("Ambiguous implicit `return` of multiple variables. " +
           "Add an explicit `return` statement on the next line.")
 
-    t.returnStatement(expr)~atNode(expr)
+    if expr~isa("AwaitExpression"):
+      t.returnStatement(expr.argument)~atNode(expr)
+    else:
+      t.returnStatement(expr)~atNode(expr)
 
   transformTails(
     functionPath.get("body")
