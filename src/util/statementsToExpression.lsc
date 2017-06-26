@@ -5,20 +5,16 @@ import t from '../types'
 import { iife } from '../blocks'
 import { isa } from '../is'
 
-buildUndefinedNode(scope) ->
-  if scope.hasBinding("undefined"):
-    t.unaryExpression("void", t.numericLiteral(0), true)
-  else:
-    t.identifier("undefined")
+import { getSurroundingLoc, placeAtLoc as atLoc, placeAtNode as atNode } from 'ast-loc-utils'
 
 // c/p https://github.com/babel/babel/blob/master/packages/babel-types/src/converters.js
 
-function gatherSequenceExpressions(nodes: Array<Object>, scope): ?Object {
+gatherSequenceExpressions(nodes: Array<Object>): ?Object ->
   exprs = []
-  let ensureLastUndefined = true;
+  let ensureLastNull = true
 
-  for elem node in nodes {
-    now ensureLastUndefined = false
+  for elem node in nodes:
+    now ensureLastNull = false
 
     match node:
       | ~isa("Expression"):
@@ -28,50 +24,37 @@ function gatherSequenceExpressions(nodes: Array<Object>, scope): ?Object {
       | ~isa("IfStatement") as { consequent, alternate, test }:
         cq = consequent // XXX: https://github.com/lightscript/lightscript/issues/39
         alt = alternate // XXX: https://github.com/lightscript/lightscript/issues/39
-        nextCq = consequent ? gatherSequenceExpressions([cq], scope) : scope~buildUndefinedNode()
-        nextAlt = alternate ? gatherSequenceExpressions([alt], scope) : scope~buildUndefinedNode()
+        if (!cq) return
+        nextCq = gatherSequenceExpressions([cq])
+        nextAlt = alt ? gatherSequenceExpressions([alt]) : t.nullLiteral()~atNode(cq)
         if (!nextCq || !nextAlt) return
 
-        exprs.push(t.conditionalExpression(test, nextCq, nextAlt))
+        loc = getSurroundingLoc([test, nextCq, nextAlt])
+        exprs.push(t.conditionalExpression(test, nextCq, nextAlt)~atLoc(loc))
       | ~isa("BlockStatement"):
-        body = gatherSequenceExpressions(node.body, scope)
+        body = gatherSequenceExpressions(node.body)
         if (!body) return
         exprs.push(body)
       | ~isa("EmptyStatement"):
-        now ensureLastUndefined = true
+        now ensureLastNull = true
       | else:
         return
-  }
 
-  if (ensureLastUndefined) {
-    exprs.push(scope~buildUndefinedNode());
-  }
+  if ensureLastNull:
+    exprs.push(t.nullLiteral()~atNode(exprs[exprs.length - 1]))
 
-  if (exprs.length === 1) {
-    return exprs[0];
-  } else {
-    return t.sequenceExpression(exprs);
-  }
-}
+  if exprs.length == 1: exprs[0] else: t.sequenceExpression(exprs)
 
-toSequenceExpression(nodes: Array<Object>, scope): ?Object ->
+toSequenceExpression(nodes: Array<Object>): ?Object ->
   if (!nodes || !nodes.length) return
-
-  declars = []
-  result = gatherSequenceExpressions(nodes, scope, declars)
-  if (!result) return
-
-  for elem declar in declars:
-    scope.push(declar)
-
-  result
+  gatherSequenceExpressions(nodes)
 
 // c/p https://github.com/babel/babel/blob/1e55653ac173c3a59f403a7b5269cf6d143d32d9/packages/babel-traverse/src/path/replacement.js
 
 export default statementsToExpression(path, nodes: Array<Object>) ->
   path.resync()
 
-  seqExpr = toSequenceExpression(nodes, path.scope);
+  seqExpr = toSequenceExpression(nodes);
 
   if t.isSequenceExpression(seqExpr):
     exprs = seqExpr.expressions
