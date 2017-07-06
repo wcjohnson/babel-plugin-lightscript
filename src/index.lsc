@@ -16,7 +16,7 @@ import { replaceWithInlinedOperator } from "./inlinedOperators";
 import { transformForInArrayStatement, transformForInObjectStatement, lintForInArrayStatement, lintForInObjectStatement } from "./for";
 import { resetHelpers } from "./helpers";
 import { markIdentifier } from "./stdlib";
-import { locatePluginOpts, getParserOpts, getOptionsForConfigurationDirectives } from './config'
+import { locatePluginOpts, getParserOpts, parseConfigurationDirectives } from './config'
 import { getFileTypeInfo, createCompilerState, initializeCompilerState, postprocess } from './compilerState'
 
 Lightscript(babel) ->
@@ -278,7 +278,7 @@ Lightscript(babel) ->
     { opts, parserOpts } = file
     fileTypeInfo = getFileTypeInfo(file)
     pluginOpts = locatePluginOpts(opts, plugin) or {} // XXX: see comments below
-    cdOpts = getOptionsForConfigurationDirectives(file.code)
+    cdOpts = parseConfigurationDirectives(file.code)
 
     // Don't read as LSC
     if (not fileTypeInfo.isLightScript) and (not cdOpts.isLightScript): return

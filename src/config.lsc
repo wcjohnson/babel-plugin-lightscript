@@ -5,6 +5,7 @@ export getMetadata() ->
   {
     parser
     getParserOpts
+    parseConfigurationDirectives
     name: packageMetadata.name
     version: packageMetadata.version
     options: {
@@ -14,8 +15,8 @@ export getMetadata() ->
       patternMatching: {
         description: "Test and branch using `match` keyword"
         valueType: "option"
-        options: ["enhanced"]
-        defaultValue: "enhanced"
+        options: ["default", "enhanced"]
+        defaultValue: "default"
         stage: "1"
       }
       bangCall: {
@@ -132,6 +133,7 @@ eatDirective(code, directives) ->
 getDirectives(code) ->
   directives = []
   let before = code, after
+  // eslint-disable-next-line no-constant-condition
   while true:
     now after = eatDirective(eatFluff(before), directives)
     if after == before: break
@@ -157,7 +159,7 @@ getWithOptions(opts, wc) ->
   for elem clause in clauses:
     getClauseOptions(opts, clause)
 
-export getOptionsForConfigurationDirectives(code) ->
+export parseConfigurationDirectives(code) ->
   result = {}
   directives = getDirectives(code)
   for elem directive in directives:
