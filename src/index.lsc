@@ -282,8 +282,8 @@ Lightscript(babel) ->
     // Don't read as LSC
     if (not fileTypeInfo.isLightScript) and (not cdOpts.isLightScript): return
 
+    file.isLightScript = true
     Object.assign(pluginOpts, cdOpts)
-    console.dir(pluginOpts)
 
     // Get LSC parser opts
     opts.parserOpts = opts.parserOpts or {}

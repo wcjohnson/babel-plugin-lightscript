@@ -44,7 +44,7 @@ export getBabel() -> compilerState.babel
 export getOptions() -> compilerState.opts
 
 export getFileTypeInfo(file) ->
-  if not file?.opts?.filename: return { isLightScript: true, isLSX: false}
+  if not file?.opts?.filename: return { isLightScript: true, isLSX: false }
   filename = file.opts.filename
 
   if filename.includes(".lsx"): return { isLightScript: true, isLSX: true }
@@ -75,6 +75,8 @@ findFirstTokenLoc(tokens) ->
 export createCompilerState(initialState) ->
   now compilerState = initialState
   processFilename(compilerState)
+  // Allow config directives to override filename processing
+  if initialState.file?.isLightScript: compilerState.isLightScript = true
 
   // Get zero-location
   tokens = initialState?.file?.ast?.tokens
