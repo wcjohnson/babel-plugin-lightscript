@@ -16,7 +16,7 @@ import { replaceWithInlinedOperator } from "./inlinedOperators";
 import { transformForInArrayStatement, transformForInObjectStatement, lintForInArrayStatement, lintForInObjectStatement } from "./for";
 import { resetHelpers } from "./helpers";
 import { markIdentifier } from "./stdlib";
-import { locatePluginOpts, getParserOpts } from './config'
+import { locatePluginOpts, getParserOpts, getOptionsForConfigurationDirectives } from './config'
 import { getFileTypeInfo, createCompilerState, initializeCompilerState, postprocess } from './compilerState'
 
 Lightscript(babel) ->
@@ -269,19 +269,52 @@ Lightscript(babel) ->
     Program
   }
 
+  // TODO: factor out to config.lsc
+  computeParserOpts(file) ->
+    // By this time, we have access to the code of the file.
+    // We can parse shebang, directives, etc and manipulate parser options
+    // based on those data.
+    file.parseShebang()
+    { opts, parserOpts } = file
+    fileTypeInfo = getFileTypeInfo(file)
+    pluginOpts = locatePluginOpts(opts, plugin) or {} // XXX: see comments below
+    cdOpts = getOptionsForConfigurationDirectives(file.code)
+
+    // Don't read as LSC
+    if (not fileTypeInfo.isLightScript) and (not cdOpts.isLightScript): return
+
+    file.isLightScript = true
+    Object.assign(pluginOpts, cdOpts)
+
+    // Get LSC parser opts
+    opts.parserOpts = opts.parserOpts or {}
+    nextParserOpts = getParserOpts(pluginOpts, opts.parserOpts)
+    parserOpts.parse = nextParserOpts.parse
+    parserOpts.plugins = nextParserOpts.plugins
+
   plugin = {
-    manipulateOptions(opts, parserOpts, file) {
-      fileTypeInfo = getFileTypeInfo(file)
-      if not fileTypeInfo.isLightScript: return
+    manipulateOptions(opts, parserOpts, file) ->
+      // This entire thing is a workaround for what is IMO a babel design flaw.
+      // Relevant Babel code:
+      // https://github.com/babel/babel/blob/4e50b2d9d9c376cee7a2cbf56553fe5b982ea53c/packages/babel-core/src/transformation/file/index.js#L63
+      // https://github.com/babel/babel/blob/4e50b2d9d9c376cee7a2cbf56553fe5b982ea53c/packages/babel-core/src/transformation/file/index.js#L483
+      //
+      // manipulateOptions is called very early in the Babel processing chain.
+      // It doesn't get an opportunity to see the configuration options for the
+      // plugin being run (without a workaround above) nor does it get an
+      // opportunity to see the code that will be compiled.
+      //
+      // This rules out things like parsing configuration directives from the
+      // top of a JS file to manipulate parsing and compiling options.
+      //
+      // This monkey patch defers the option manipulation until after the file
+      // has been read, but before actual parsing.
+      origAddCode = file.addCode
 
-      pluginOpts = locatePluginOpts(opts, plugin)
-
-      // Set parser to LightScript mode
-      opts.parserOpts = opts.parserOpts or {}
-      nextParserOpts = getParserOpts(pluginOpts, opts.parserOpts)
-      parserOpts.parse = nextParserOpts.parse
-      parserOpts.plugins = nextParserOpts.plugins
-    }
+      file.addCode(code) ->
+        origAddCode.call(this, code)
+        computeParserOpts(this)
+        return
 
     visitor
   }
