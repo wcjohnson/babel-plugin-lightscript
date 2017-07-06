@@ -269,6 +269,7 @@ Lightscript(babel) ->
     Program
   }
 
+  // TODO: factor out to config.lsc
   computeParserOpts(file) ->
     // By this time, we have access to the code of the file.
     // We can parse shebang, directives, etc and manipulate parser options
@@ -291,7 +292,6 @@ Lightscript(babel) ->
     parserOpts.parse = nextParserOpts.parse
     parserOpts.plugins = nextParserOpts.plugins
 
-
   plugin = {
     manipulateOptions(opts, parserOpts, file) ->
       // This entire thing is a workaround for what is IMO a babel design flaw.
@@ -313,7 +313,7 @@ Lightscript(babel) ->
 
       file.addCode(code) ->
         origAddCode.call(this, code)
-        computeParserOpts(file)
+        computeParserOpts(this)
         return
 
     visitor
