@@ -122,8 +122,8 @@ eatDirective(code, directives) ->
   else:
     dqMatches = code.match(/^"((?:[^"\\]|\\.)*)"\s*;?\s*([^]*)$/)
     if dqMatches:
-      directives.push(matches[1])
-      matches[2]
+      directives.push(dqMatches[1])
+      dqMatches[2]
     else:
       code
 
