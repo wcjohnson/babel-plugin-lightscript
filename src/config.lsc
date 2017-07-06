@@ -106,18 +106,15 @@ export locatePluginOpts(opts, thisPlugin) ->
 
   {}
 
-eatWhitespace(code) ->
-  code.trim()
-
-eatLineComment(code) ->
+eatFluff(code) ->
+  now code = code.trim()
   matches = code.match(/^(?:\/\/[^\r\n]*\r?\n?\s*)+([^]*)$/)
-  if matches: matches[1] else: code
-
-eatBlockComment(code) ->
-  matches = code.match(/^(?:\/\*[^]*?\*\/\s*)+([^]*)$/)
-  if matches: matches[1] else: code
+  if matches: matches[1] else:
+    lcMatches = code.match(/^(?:\/\*[^]*?\*\/\s*)+([^]*)$/)
+    if lcMatches: lcMatches[1] else: code
 
 eatDirective(code, directives) ->
+  now code = code.trim()
   matches = code.match(/^'((?:[^'\\]|\\.)*)'\s*;?\s*([^]*)$/)
   if matches:
     directives.push(matches[1])
@@ -130,16 +127,43 @@ eatDirective(code, directives) ->
     else:
       code
 
-eatLeadingComments(code) ->
-  let nextCode
+// XXX: This is somewhat hackish. We can probably get Babylon to just parse the
+// directives off the Program block as a plugin or something.
+getDirectives(code) ->
+  directives = []
+  let before = code, after
   while true:
-    now nextCode = eatWhitespace(nextCode)
-    now nextCode = eatBlockComment(nextCode)
-    now nextCode = eatWhitespace(nextCode)
-    now nextCode = eatLineComment(nextCode)
-    if nextCode == code: break
-  nextCode
+    now after = eatDirective(eatFluff(before), directives)
+    if after == before: break
+    now before = after
+  directives
 
+getClauseOptions(opts, clause) ->
+  now clause = clause.split(':')
+  if clause.length == 2:
+    opt = clause[0].trim()
+    val = clause[1].trim()
+    if opt.length and val.length:
+      try:
+        opts[opt] = JSON.parse(val)
+      catch err:
+        return
+  elif clause.length == 1:
+    opt = clause[0].trim()
+    if opt.length: opts[opt] = true
 
-getLeadingDirectives(code) ->
-  now code = eatLeadingComments(code)
+getWithOptions(opts, wc) ->
+  clauses = wc.split(',')
+  for elem clause in clauses:
+    getClauseOptions(opts, clause)
+
+export getOptionsForConfigurationDirectives(code) ->
+  result = {}
+  directives = getDirectives(code)
+  for elem directive in directives:
+    matches = directive.match(/^use \@oigroup\/lightscript\s*(?:with ([^]*))?$/)
+    if matches:
+      result.isLightScript = true
+      if matches[1]: getWithOptions(result, matches[1])
+
+  result
