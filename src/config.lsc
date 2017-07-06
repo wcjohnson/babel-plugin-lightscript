@@ -105,3 +105,41 @@ export locatePluginOpts(opts, thisPlugin) ->
       if isMe(plugin, thisPlugin): return {}
 
   {}
+
+eatWhitespace(code) ->
+  code.trim()
+
+eatLineComment(code) ->
+  matches = code.match(/^(?:\/\/[^\r\n]*\r?\n?\s*)+([^]*)$/)
+  if matches: matches[1] else: code
+
+eatBlockComment(code) ->
+  matches = code.match(/^(?:\/\*[^]*?\*\/\s*)+([^]*)$/)
+  if matches: matches[1] else: code
+
+eatDirective(code, directives) ->
+  matches = code.match(/^'((?:[^'\\]|\\.)*)'\s*;?\s*([^]*)$/)
+  if matches:
+    directives.push(matches[1])
+    matches[2]
+  else:
+    dqMatches = code.match(/^"((?:[^"\\]|\\.)*)"\s*;?\s*([^]*)$/)
+    if dqMatches:
+      directives.push(matches[1])
+      matches[2]
+    else:
+      code
+
+eatLeadingComments(code) ->
+  let nextCode
+  while true:
+    now nextCode = eatWhitespace(nextCode)
+    now nextCode = eatBlockComment(nextCode)
+    now nextCode = eatWhitespace(nextCode)
+    now nextCode = eatLineComment(nextCode)
+    if nextCode == code: break
+  nextCode
+
+
+getLeadingDirectives(code) ->
+  now code = eatLeadingComments(code)
