@@ -57,6 +57,10 @@ export getMetadata() ->
         description: "Don't parse Flow type annotations."
         valueType: "boolean"
       }
+      preferObjectLiteral: {
+        description: "Resolve object-block ambiguity by parsing object literals whenever possible."
+        valueType: "boolean"
+      }
     }
   }
 
@@ -78,6 +82,7 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
   if not pluginOpts?.noEnforcedSubscriptIndentation: plugins.push("enforceSubscriptIndentation")
   if pluginOpts?.flippedImports: plugins.push("flippedImports")
   if pluginOpts?.enhancedComprehension: plugins.push("enhancedComprehension")
+  if pluginOpts?.preferObjectLiteral: plugins.push("objectBlockAmbiguity_preferObject")
 
   // TODO: watch upstream on pattern matching; default to their syntax when complete
   // patternMatchingVersion = pluginOpts?.patternMatching or "v4"
