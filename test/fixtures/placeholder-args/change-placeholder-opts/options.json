@@ -1,0 +1,3 @@
+{
+  "plugins": [["lightscript", { "placeholderArgs": true, "placeholder": "P" }]]
+}

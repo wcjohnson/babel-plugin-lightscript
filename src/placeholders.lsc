@@ -1,0 +1,73 @@
+import t from './types'
+
+registerPlaceholder(functions, path, programPath) ->
+  fnPath = path.getFunctionParent()
+  if fnPath == programPath || !fnPath.node || !fnPath.node.params:
+    throw path.buildCodeFrameError("Placeholders cannot be used outside functions.")
+
+  if fnPath.node.params.length:
+    throw path.buildCodeFrameError("Placeholders cannot be used in functions with arguments.")
+
+  if path.parentPath?.node?.type == "SpreadElement":
+    if path.node?.index?:
+      throw path.buildCodeFrameError("Cannot use indices with spread placeholders.")
+
+  let fnInfo = functions.get(fnPath)
+  if fnInfo:
+    fnInfo.placeholders.push(path)
+  else:
+    functions.set(fnPath, { functionPath: fnPath, placeholders: [ path ] })
+
+liftPlaceholders(fnPath, phPaths) ->
+  // Collate placeholders
+  ixPhPaths = phPaths.filter(x -> x.node.index?)
+  nixPhPaths = phPaths.filter(x-> not x.node.index?)
+  ixPhPaths.sort((a, b) -> a.node.index - b.node.index)
+  nixPhPaths.sort((a, b) ->
+    // SpreadElements are last
+    if a.parentPath?.node.type == "SpreadElement":
+      1
+    elif b.parentPath?.node.type == "SpreadElement":
+      -1
+    else:
+      0
+  )
+  sortedPhPaths = ixPhPaths.concat(nixPhPaths)
+
+  // Formulate args
+  args = []
+  let prevIndex = undefined, restArg = undefined
+  for elem phPath in sortedPhPaths:
+    { node } = phPath
+    if phPath.parentPath?.node.type == "SpreadElement":
+      if not restArg:
+        now restArg = fnPath.scope.generateUidIdentifier("arg")
+        args.push(t.restElement(restArg))
+      phPath.replaceWith(restArg)
+    elif node.index? and node.index == prevIndex:
+      // Repeated use of an index = same arg.
+      phPath.replaceWith(args[args.length - 1])
+    else:
+      args.push(fnPath.scope.generateUidIdentifier("arg"))
+      now prevIndex = node.index
+      phPath.replaceWith(args[args.length - 1])
+
+  // Lift args to function level
+  fnNode = fnPath.node
+  fnNode.params = args
+  fnPath.replaceWith(fnNode)
+
+// Collect all functions with placeholders into a Map, one entry per function
+findFunctionsWithPlaceholders(programPath) ->
+  fns = new Map()
+  programPath.traverse({
+    PlaceholderExpression(path): void ->
+      registerPlaceholder(fns, path, programPath)
+  })
+  fns
+
+export transformPlaceholders(programPath) ->
+  fns = programPath~findFunctionsWithPlaceholders()
+  fns.forEach( fnInfo ->
+    fnInfo.functionPath~liftPlaceholders(fnInfo.placeholders)
+  )
