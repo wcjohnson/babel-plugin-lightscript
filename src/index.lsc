@@ -45,9 +45,12 @@ Lightscript(babel) ->
     //// AST transforms
     // Perform basic ast fixups (block bodies, etc)
     fixAst(path)
-    // Transform placeholder expressions first.
-    transformPlaceholders(path)
 
+    // Transform placeholder expressions first.
+    if compilerState.opts.placeholderArgs:
+      transformPlaceholders(path)
+
+    // Main LSC transforms
     path.traverse({
       ForInArrayStatement(path): void ->
         // TODO: push the linter conditional down into the transform
