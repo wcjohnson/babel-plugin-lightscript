@@ -2,6 +2,9 @@ import is, { isa } from "./is"
 
 import { placeAtNode as atNode, placeTreeAtLocWhenUnplaced as allAtLoc, getLoc, placeAtLoc as atLoc, getSurroundingLoc } from 'ast-loc-utils'
 
+import patch from './util/babelTypesPatch'
+import { registerLightscriptNodeTypes } from './lscNodeTypes'
+
 import {
   addImplicitReturns, replaceWithPlainFunction, replaceWithArrowFunction,
   replaceWithBoundFunction
@@ -23,7 +26,9 @@ import { transformPlaceholders } from './placeholders'
 import { transformPipeOperator } from './pipe'
 
 Lightscript(babel) ->
-  const { types: t } = babel;
+  { types: t } = babel
+  patch(t)
+  registerLightscriptNodeTypes(t)
 
   // traverse as top-level item so as to run before other babel plugins
   // (and avoid traversing any of their output)
