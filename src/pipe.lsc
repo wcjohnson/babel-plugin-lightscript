@@ -1,0 +1,11 @@
+import t from './types'
+
+import {
+  placeAtLoc as atLoc,
+  getSurroundingLoc
+} from 'ast-loc-utils'
+
+export transformPipeOperator(path) ->
+  { node: { left, right } } = path
+  loc = getSurroundingLoc([left, right])
+  path.replaceWith(t.callExpression(right, [left])~atLoc(loc))

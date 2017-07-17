@@ -20,6 +20,7 @@ import { locatePluginOpts, getParserOpts, parseConfigurationDirectives } from '.
 import { getFileTypeInfo, createCompilerState, initializeCompilerState, postprocess } from './compilerState'
 import { fixAst } from './fixAst'
 import { transformPlaceholders } from './placeholders'
+import { transformPipeOperator } from './pipe'
 
 Lightscript(babel) ->
   const { types: t } = babel;
@@ -52,6 +53,9 @@ Lightscript(babel) ->
 
     // Main LSC transforms
     path.traverse({
+      PipeCallExpression(path): void ->
+        transformPipeOperator(path)
+
       ForInArrayStatement(path): void ->
         // TODO: push the linter conditional down into the transform
         // and get linter status from compilerState

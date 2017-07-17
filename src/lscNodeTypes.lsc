@@ -330,3 +330,16 @@ export registerLightscriptNodeTypes(t): void ->
   definePluginType("PlaceholderExpression", {
     aliases: ["Expression"]
   });
+
+  definePluginType("PipeCallExpression", {
+    visitor: ["left", "right"],
+    aliases: ["CallExpression", "Expression"],
+    fields: {
+      left: {
+        validate: assertNodeType("Expression"),
+      },
+      right: {
+        validate: assertNodeType("Expression"),
+      },
+    },
+  });
