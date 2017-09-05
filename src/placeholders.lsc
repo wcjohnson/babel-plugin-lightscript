@@ -1,5 +1,9 @@
 import t from './types'
 
+isIndexedPlaceholderPath(phPath) -> phPath.node.index?
+isSpreadPlaceholderPath(phPath) -> phPath.parentPath?.node.type == "SpreadElement"
+isNonIndexedPlaceholderPath(phPath) -> (not phPath.node.index?) and (not phPath~isSpreadPlaceholderPath())
+
 registerPlaceholder(functions, path, programPath) ->
   fnPath = path.getFunctionParent()
   if fnPath == programPath || !fnPath.node || !fnPath.node.params:
@@ -20,39 +24,33 @@ registerPlaceholder(functions, path, programPath) ->
 
 liftPlaceholders(fnPath, phPaths) ->
   // Collate placeholders
-  ixPhPaths = phPaths.filter(x -> x.node.index?)
-  nixPhPaths = phPaths.filter(x-> not x.node.index?)
-  ixPhPaths.sort((a, b) -> a.node.index - b.node.index)
-  nixPhPaths.sort((a, b) ->
-    // SpreadElements are last
-    if a.parentPath?.node.type == "SpreadElement":
-      1
-    elif b.parentPath?.node.type == "SpreadElement":
-      -1
-    else:
-      0
-  )
-  sortedPhPaths = ixPhPaths.concat(nixPhPaths)
+  ixPhPaths = phPaths.filter(isIndexedPlaceholderPath)
+  nixPhPaths = phPaths.filter(isNonIndexedPlaceholderPath)
+  spreadPhPaths = phPaths.filter(isSpreadPlaceholderPath)
+
+  if ixPhPaths.length > 0 and nixPhPaths.length > 0:
+    throw fnPath.buildCodeFrameError("Cannot mix indexed and non-indexed placeholders in a function.")
 
   // Formulate args
   args = []
-  let prevIndex = undefined, restArg = undefined
-  for elem phPath in sortedPhPaths:
-    { node } = phPath
-    if phPath.parentPath?.node.type == "SpreadElement":
-      if not restArg:
-        now restArg = fnPath.scope.generateUidIdentifier("arg")
-        args.push(t.restElement(restArg))
-      phPath.replaceWith(restArg)
-    elif node.index? and node.index == prevIndex:
-      // Repeated use of an index = same arg.
-      phPath.replaceWith(args[args.length - 1])
-    else:
-      args.push(fnPath.scope.generateUidIdentifier("arg"))
-      now prevIndex = node.index
-      phPath.replaceWith(args[args.length - 1])
+  let restArg = undefined
+  maxArg = if ixPhPaths.length > 0:
+    // Indexed case
+    Math.max(...ixPhPaths.map(x -> x.node.index)) + 1
+  else if nixPhPaths.length > 0: 1
+  else: 0
+  // Generate unique identifiers for args
+  for let i = 0; i < maxArg; i++: args.push(fnPath.scope.generateUidIdentifier("arg"))
+  if spreadPhPaths.length > 0:
+    now restArg = fnPath.scope.generateUidIdentifier("arg")
+    args.push(t.restElement(restArg))
 
-  // Lift args to function level
+  // Replace placeholders with references to args
+  for elem phPath in nixPhPaths: phPath.replaceWith(args[0])
+  for elem phPath in ixPhPaths: phPath.replaceWith(args[phPath.node.index])
+  for elem phPath in spreadPhPaths: phPath.replaceWith(restArg)
+
+  // Replace function definition arg list
   fnNode = fnPath.node
   fnNode.params = args
   fnPath.replaceWith(fnNode)

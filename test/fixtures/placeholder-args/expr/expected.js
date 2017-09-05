@@ -1,5 +1,5 @@
-x.map(function (_arg, _arg2) {
-  return _arg2 + _arg;
+x.map(function (_arg) {
+  return _arg + 1;
 });
 
-y.map((_arg3, _arg4) => _arg4 + _arg3);
+y.map((_arg2) => _arg2 + 1);

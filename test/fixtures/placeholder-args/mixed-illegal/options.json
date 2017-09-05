@@ -1,0 +1,3 @@
+{
+  "throws": "Cannot mix indexed and non-indexed placeholders in a function."
+}
