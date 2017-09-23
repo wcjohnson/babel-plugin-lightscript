@@ -250,12 +250,6 @@ export registerLightscriptNodeTypes(t): void ->
       }
     });
 
-  if not t.hasType("SafeMemberExpression"):
-    definePluginType("SafeMemberExpression", {
-      inherits: "MemberExpression",
-      aliases: ["MemberExpression", "Expression", "LVal"],
-    });
-
   if not t.hasType("ExistentialExpression"):
     definePluginType("ExistentialExpression", {
       builder: ["argument"],

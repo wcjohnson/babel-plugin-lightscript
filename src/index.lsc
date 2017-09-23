@@ -100,7 +100,7 @@ Lightscript(babel) ->
 
           if path~replaceWithInlinedOperator(node.right, args): return
 
-          if (node.safe):
+          if (node.optional):
             path~replaceWithSafeCall(callExpr)
           else:
             path.replaceWith(callExpr)
@@ -110,7 +110,7 @@ Lightscript(babel) ->
         exit(path): void ->
           { node } = path
           if replaceWithInlinedOperator(path, node.callee, node.arguments): return
-          if node.safe: replaceWithSafeCall(path, node)
+          if node.optional: replaceWithSafeCall(path, node)
       }
 
       NamedArrowFunction(path): void ->
@@ -237,8 +237,8 @@ Lightscript(babel) ->
         awaitExpr = t.awaitExpression(awaitIife)~allAtLoc(getLoc(path.node))
         path.replaceWith(awaitExpr)
 
-      SafeMemberExpression(path): void ->
-        transformSafeMemberExpression(path)
+      MemberExpression(path): void ->
+        if path.node.optional: transformSafeMemberExpression(path)
 
       AwaitExpression(path): void ->
         if (path.get("argument").isArrayExpression() || path.node.argument.type === "ArrayComprehension") {

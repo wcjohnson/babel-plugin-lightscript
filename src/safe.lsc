@@ -50,11 +50,11 @@ export transformSafeMemberExpression(path) ->
   { node } = path
   { object } = node
 
-  // Demote to an ordinary member expression
-  node.type = "MemberExpression"
+  // Transform to vanilla member expr
+  node.optional = false
 
   // Generate null check, hoisting ref if necessary.
-  left = if object.type === "Identifier" or object.type === "SafeMemberExpression":
+  left = if object.type === "Identifier" or (object.type === "MemberExpression" and object.optional):
     object
   else:
     // "Lazy man's" fix for the `?.` fat arrow bug.
