@@ -14,15 +14,16 @@ import { getShadowingIdentifiers, checkFalsePositiveReference } from "./variable
 import { ensureConstructor, bindMethodsInConstructor, bindMethods } from "./classes";
 import * as matching from "./match";
 import * as comprehension from "./comprehension";
-import { transformExistentialExpression, maybeTransformSafe } from "./safe";
+import { transformExistentialExpression } from "./safe";
 import { replaceWithInlinedOperator } from "./inlinedOperators";
 import { transformForInArrayStatement, transformForInObjectStatement, lintForInArrayStatement, lintForInObjectStatement } from "./for";
 import { resetHelpers } from "./helpers";
 import { markIdentifier } from "./stdlib";
 import { locatePluginOpts, getParserOpts, parseConfigurationDirectives } from './config'
 import { getFileTypeInfo, createCompilerState, initializeCompilerState, postprocess } from './compilerState'
-import { fixAst } from './fixAst'
-import { transformPlaceholders } from './placeholders'
+import { fixAst } from './passes/fixAst'
+import { transformPlaceholders } from './passes/transformPlaceholders'
+import { transformSafeExprs } from './passes/transformSafeExprs'
 import { transformPipeOperator } from './pipe'
 
 Lightscript(babel) ->
@@ -51,10 +52,11 @@ Lightscript(babel) ->
     //// AST transforms
     // Perform basic ast fixups (block bodies, etc)
     fixAst(path)
-
     // Transform placeholder expressions first.
     if compilerState.opts.placeholderArgs:
       transformPlaceholders(path)
+    // Transform safe exprs
+    transformSafeExprs(path)
 
     // Main LSC transforms
     path.traverse({
@@ -90,9 +92,6 @@ Lightscript(babel) ->
           comprehension.transformPlainObjectComprehension(path)
 
       CallExpression: {
-        enter(path): void ->
-          maybeTransformSafe(path)
-
         exit(path): void ->
           { node } = path
           if replaceWithInlinedOperator(path, node.callee, node.arguments): return
@@ -222,12 +221,6 @@ Lightscript(babel) ->
         // TODO: returntype annotation
         awaitExpr = t.awaitExpression(awaitIife)~allAtLoc(getLoc(path.node))
         path.replaceWith(awaitExpr)
-
-      MemberExpression(path): void ->
-        path~maybeTransformSafe()
-
-      NewExpression(path): void ->
-        path~maybeTransformSafe()
 
       AwaitExpression(path): void ->
         if (path.get("argument").isArrayExpression() || path.node.argument.type === "ArrayComprehension") {

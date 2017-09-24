@@ -1,9 +1,9 @@
 // Perform non-semantic AST transformations like ensuring function bodies
 // are blocks, etc.
-import { isNamedArrowFunction } from './functions'
-import { toBlockStatement } from './blocks'
-import { isa } from './is'
-import { ensureBlockArrowFunctionExpression } from './functions'
+import { isNamedArrowFunction } from '../functions'
+import { toBlockStatement } from '../blocks'
+import { isa } from '../is'
+import { ensureBlockArrowFunctionExpression } from '../functions'
 
 export fixAst(programPath) ->
   programPath.traverse({
