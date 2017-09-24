@@ -82,10 +82,16 @@ replaceOptionals(path, replacementPath, loose = true): void ->
 
     replacementPath.replaceWith(
       t.conditionalExpression(
-        t.binaryExpression("==", check, t.nullLiteral()),
-        nil,
-        replacementPath.node,
-      ),
+        if isCall:
+          t.binaryExpression("!==",
+            t.unaryExpression("typeof", check),
+            t.stringLiteral("function")
+          )
+        else:
+          t.binaryExpression("==", check, t.nullLiteral())
+        nil
+        replacementPath.node
+      )
     )
 
     now replacementPath = replacementPath.get("alternate")

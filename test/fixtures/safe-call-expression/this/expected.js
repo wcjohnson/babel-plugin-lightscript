@@ -1,3 +1,3 @@
-typeof obj.method === "function" ? obj.method() : void 0;
+typeof obj.method !== "function" ? void 0 : obj.method();
 
-typeof this.method === "function" ? this.method() : void 0;
+typeof this.method !== "function" ? void 0 : this.method();

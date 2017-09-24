@@ -1,1 +1,1 @@
-typeof a === "function" ? a(b, c) : void 0;
+typeof a !== "function" ? void 0 : a(b, c);
