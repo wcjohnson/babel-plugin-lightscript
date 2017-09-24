@@ -14,7 +14,7 @@ import { getShadowingIdentifiers, checkFalsePositiveReference } from "./variable
 import { ensureConstructor, bindMethodsInConstructor, bindMethods } from "./classes";
 import * as matching from "./match";
 import * as comprehension from "./comprehension";
-import { replaceWithSafeCall, transformSafeMemberExpression, transformExistentialExpression } from "./safe";
+import { replaceWithSafeCall, transformSafeMemberExpression, transformExistentialExpression, maybeTransformSafe } from "./safe";
 import { replaceWithInlinedOperator } from "./inlinedOperators";
 import { transformForInArrayStatement, transformForInObjectStatement, lintForInArrayStatement, lintForInObjectStatement } from "./for";
 import { resetHelpers } from "./helpers";
@@ -90,27 +90,21 @@ Lightscript(babel) ->
           comprehension.transformPlainObjectComprehension(path)
 
       TildeCallExpression: {
-        // run on exit instead of enter so that SafeMemberExpression
-        // can process differently from a wrapping CallExpression
-        // eg; `a?.b~c()` -> `a == null ? null : c(a.b)`
-        exit(path): void ->
+        enter(path): void ->
           { node } = path
           args = [ node.left, ...node.arguments ]
           callExpr = t.callExpression(node.right, args)~atNode(node)
-
-          if path~replaceWithInlinedOperator(node.right, args): return
-
-          if (node.optional):
-            path~replaceWithSafeCall(callExpr)
-          else:
-            path.replaceWith(callExpr)
+          if node.optional: callExpr.optional = true
+          path.replaceWith(callExpr)
       }
 
       CallExpression: {
+        enter(path): void ->
+          maybeTransformSafe(path)
+
         exit(path): void ->
           { node } = path
           if replaceWithInlinedOperator(path, node.callee, node.arguments): return
-          if node.optional: replaceWithSafeCall(path, node)
       }
 
       NamedArrowFunction(path): void ->
@@ -239,7 +233,10 @@ Lightscript(babel) ->
         path.replaceWith(awaitExpr)
 
       MemberExpression(path): void ->
-        if path.node.optional: transformSafeMemberExpression(path)
+        path~maybeTransformSafe()
+
+      NewExpression(path): void ->
+        path~maybeTransformSafe()
 
       AwaitExpression(path): void ->
         if (path.get("argument").isArrayExpression() || path.node.argument.type === "ArrayComprehension") {
