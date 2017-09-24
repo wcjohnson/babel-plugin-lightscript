@@ -2,6 +2,8 @@
 // are blocks, etc.
 import { isNamedArrowFunction } from './functions'
 import { toBlockStatement } from './blocks'
+import { isa } from './is'
+import { ensureBlockArrowFunctionExpression } from './functions'
 
 export fixAst(programPath) ->
   programPath.traverse({
@@ -10,4 +12,8 @@ export fixAst(programPath) ->
       if isNamedArrowFunction(node):
         node.body = toBlockStatement(node.body)
         path.replaceWith(node)
+
+    SafeMemberExpression(path): void ->
+      if path.parent~isa("ArrowFunctionExpression"):
+        path.parentPath~ensureBlockArrowFunctionExpression()
   })

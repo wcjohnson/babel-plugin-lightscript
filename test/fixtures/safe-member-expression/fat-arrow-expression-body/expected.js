@@ -1,6 +1,6 @@
-() => _ == null ? null : _.a;
-
 () => {
+  return _ == null ? null : _.a;
+};() => {
   var _ref;
 
   return (_ref = _.a) == null ? null : _ref.a;
