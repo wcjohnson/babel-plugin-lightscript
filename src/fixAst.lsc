@@ -13,7 +13,7 @@ export fixAst(programPath) ->
         node.body = toBlockStatement(node.body)
         path.replaceWith(node)
 
-    SafeMemberExpression(path): void ->
-      if path.parent~isa("ArrowFunctionExpression"):
+    MemberExpression(path): void ->
+      if path.node.optional and path.parent~isa("ArrowFunctionExpression"):
         path.parentPath~ensureBlockArrowFunctionExpression()
   })
