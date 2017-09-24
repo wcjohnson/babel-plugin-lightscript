@@ -17,7 +17,7 @@ inlinedOperator = {
 export getInlinedOperatorsEnabled(opts) ->
   not ((opts.stdlib === false) or (typeof opts.stdlib === "object" && opts.stdlib.lightscript === false))
 
-export replaceWithInlinedOperator(path, callee, args) ->
+export maybeReplaceWithInlinedOperator(path, callee, args) ->
   if(
     !(getCompilerState().inlinedOperatorsEnabled) or
     callee.type !== "Identifier"

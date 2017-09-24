@@ -15,7 +15,7 @@ import { ensureConstructor, bindMethodsInConstructor, bindMethods } from "./clas
 import * as matching from "./match";
 import * as comprehension from "./comprehension";
 import { transformExistentialExpression } from "./safe";
-import { replaceWithInlinedOperator } from "./inlinedOperators";
+import { maybeReplaceWithInlinedOperator } from "./inlinedOperators";
 import { transformForInArrayStatement, transformForInObjectStatement, lintForInArrayStatement, lintForInObjectStatement } from "./for";
 import { resetHelpers } from "./helpers";
 import { markIdentifier } from "./stdlib";
@@ -91,11 +91,9 @@ Lightscript(babel) ->
         else:
           comprehension.transformPlainObjectComprehension(path)
 
-      CallExpression: {
-        exit(path): void ->
-          { node } = path
-          if replaceWithInlinedOperator(path, node.callee, node.arguments): return
-      }
+      CallExpression(path): void ->
+        { node } = path
+        maybeReplaceWithInlinedOperator(path, node.callee, node.arguments)
 
       NamedArrowFunction(path): void ->
         if (path.node.skinny):
@@ -174,10 +172,11 @@ Lightscript(babel) ->
         exit(path): void ->
           addImplicitReturns(path)
 
-          // As this is an exit visitor, other LSC transforms have reduced
-          // arrows to plain FunctionDeclarations by this point.
           if path.node.type === "FunctionDeclaration":
-            // somehow this wasn't being done... may signal deeper issues...
+            // This is needed because named arrow declarations are new in
+            // Lightscript and therefore not acknowledged by Babel's default
+            // traversal algorithm for assessing declarations. We must
+            // register the declaration by hand here.
             path.getFunctionParent().scope.registerDeclaration(path)
       }
 

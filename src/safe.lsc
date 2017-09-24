@@ -20,7 +20,7 @@ findReplacementPath(path) ->
     else: true
   )
 
-replaceOptionals(path, replacementPath, loose = true): void ->
+replaceOptionals(path, replacementPath): void ->
   { scope } = path
   optionals = []
   nil = scope.buildUndefinedNode()
@@ -87,7 +87,7 @@ replaceOptionals(path, replacementPath, loose = true): void ->
 
 export maybeTransformSafe(path): void ->
   if path.node.optional:
-    replaceOptionals(path, path~findReplacementPath(), true)
+    replaceOptionals(path, path~findReplacementPath())
 
 export transformExistentialExpression(path) ->
   path.replaceWith(
