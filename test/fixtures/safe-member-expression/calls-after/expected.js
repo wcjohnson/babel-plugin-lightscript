@@ -1,11 +1,11 @@
-var _a$b, _a$b$c, _c;
+var _ref, _ref2, _ref3;
 
 a == null ? void 0 : a.b();
 
-a == null ? void 0 : (_a$b = a.b()) == null ? void 0 : _a$b.c().d.e();
+(_ref = a == null ? void 0 : a.b()) == null ? void 0 : _ref.c().d.e();
 
-a == null ? void 0 : (_a$b$c = a.b().c) == null ? void 0 : _a$b$c.d().e.f();
+(_ref2 = a == null ? void 0 : a.b().c) == null ? void 0 : _ref2.d().e.f();
 
-c(a == null ? void 0 : a.b);
+a == null ? void 0 : c(a.b);
 
-e((_c = c(a == null ? void 0 : a.b)) == null ? void 0 : _c.d);
+(_ref3 = a == null ? void 0 : c(a.b)) == null ? void 0 : e(_ref3.d);
