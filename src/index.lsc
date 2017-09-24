@@ -14,15 +14,16 @@ import { getShadowingIdentifiers, checkFalsePositiveReference } from "./variable
 import { ensureConstructor, bindMethodsInConstructor, bindMethods } from "./classes";
 import * as matching from "./match";
 import * as comprehension from "./comprehension";
-import { replaceWithSafeCall, transformSafeMemberExpression, transformExistentialExpression } from "./safe";
-import { replaceWithInlinedOperator } from "./inlinedOperators";
+import { transformExistentialExpression } from "./safe";
+import { maybeReplaceWithInlinedOperator } from "./inlinedOperators";
 import { transformForInArrayStatement, transformForInObjectStatement, lintForInArrayStatement, lintForInObjectStatement } from "./for";
 import { resetHelpers } from "./helpers";
 import { markIdentifier } from "./stdlib";
 import { locatePluginOpts, getParserOpts, parseConfigurationDirectives } from './config'
 import { getFileTypeInfo, createCompilerState, initializeCompilerState, postprocess } from './compilerState'
-import { fixAst } from './fixAst'
-import { transformPlaceholders } from './placeholders'
+import { fixAst } from './passes/fixAst'
+import { transformPlaceholders } from './passes/transformPlaceholders'
+import { transformSafeExprs } from './passes/transformSafeExprs'
 import { transformPipeOperator } from './pipe'
 
 Lightscript(babel) ->
@@ -51,10 +52,11 @@ Lightscript(babel) ->
     //// AST transforms
     // Perform basic ast fixups (block bodies, etc)
     fixAst(path)
-
     // Transform placeholder expressions first.
     if compilerState.opts.placeholderArgs:
       transformPlaceholders(path)
+    // Transform safe exprs
+    transformSafeExprs(path)
 
     // Main LSC transforms
     path.traverse({
@@ -89,29 +91,9 @@ Lightscript(babel) ->
         else:
           comprehension.transformPlainObjectComprehension(path)
 
-      TildeCallExpression: {
-        // run on exit instead of enter so that SafeMemberExpression
-        // can process differently from a wrapping CallExpression
-        // eg; `a?.b~c()` -> `a == null ? null : c(a.b)`
-        exit(path): void ->
-          { node } = path
-          args = [ node.left, ...node.arguments ]
-          callExpr = t.callExpression(node.right, args)~atNode(node)
-
-          if path~replaceWithInlinedOperator(node.right, args): return
-
-          if (node.optional):
-            path~replaceWithSafeCall(callExpr)
-          else:
-            path.replaceWith(callExpr)
-      }
-
-      CallExpression: {
-        exit(path): void ->
-          { node } = path
-          if replaceWithInlinedOperator(path, node.callee, node.arguments): return
-          if node.optional: replaceWithSafeCall(path, node)
-      }
+      CallExpression(path): void ->
+        { node } = path
+        maybeReplaceWithInlinedOperator(path, node.callee, node.arguments)
 
       NamedArrowFunction(path): void ->
         if (path.node.skinny):
@@ -190,10 +172,11 @@ Lightscript(babel) ->
         exit(path): void ->
           addImplicitReturns(path)
 
-          // As this is an exit visitor, other LSC transforms have reduced
-          // arrows to plain FunctionDeclarations by this point.
           if path.node.type === "FunctionDeclaration":
-            // somehow this wasn't being done... may signal deeper issues...
+            // This is needed because named arrow declarations are new in
+            // Lightscript and therefore not acknowledged by Babel's default
+            // traversal algorithm for assessing declarations. We must
+            // register the declaration by hand here.
             path.getFunctionParent().scope.registerDeclaration(path)
       }
 
@@ -237,9 +220,6 @@ Lightscript(babel) ->
         // TODO: returntype annotation
         awaitExpr = t.awaitExpression(awaitIife)~allAtLoc(getLoc(path.node))
         path.replaceWith(awaitExpr)
-
-      MemberExpression(path): void ->
-        if path.node.optional: transformSafeMemberExpression(path)
 
       AwaitExpression(path): void ->
         if (path.get("argument").isArrayExpression() || path.node.argument.type === "ArrayComprehension") {

@@ -1,3 +1,3 @@
-var _ref;
+var _x;
 
-typeof (_ref = x()) === "function" ? _ref() : void 0;
+typeof (_x = x()) !== "function" ? void 0 : _x();

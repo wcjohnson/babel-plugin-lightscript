@@ -1,0 +1,7 @@
+import { maybeTransformSafe } from '../safe'
+
+export transformSafeExprs(programPath) ->
+  programPath.traverse({
+    CallExpression(path): void -> path~maybeTransformSafe()
+    MemberExpression(path): void -> path~maybeTransformSafe()
+  })
