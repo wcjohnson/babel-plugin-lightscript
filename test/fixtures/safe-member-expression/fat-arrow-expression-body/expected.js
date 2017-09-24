@@ -1,11 +1,15 @@
 () => {
-  return _ == null ? null : _.a;
-};() => {
-  var _ref;
+  return _ == null ? void 0 : _.a;
+};
 
-  return (_ref = _.a) == null ? void 0 : _ref.a;
-};() => {
-  var _ref2;
+() => {
+  var _$a;
 
-  return (_ref2 = f()) == null ? void 0 : _ref2.x;
+  return (_$a = _.a) == null ? void 0 : _$a.a;
+};
+
+() => {
+  var _f;
+
+  return (_f = f()) == null ? void 0 : _f.x;
 };

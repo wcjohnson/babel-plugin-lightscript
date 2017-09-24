@@ -1,6 +1,6 @@
 import t from './types'
 import atNode from 'ast-loc-utils/lib/placeAtNode'
-import { hoistRef } from './ref'
+import { hoistRef, isSimple } from './ref'
 import is, { isa } from './is'
 import { ensureBlockArrowFunctionExpression } from './functions'
 
@@ -49,15 +49,15 @@ replaceOptionals(path, replacementPath, loose = true): void ->
     if loose and isCall:
       // If we are using a loose transform (avoiding a Function#call) and we are at the call,
       // we can avoid a needless memoize.
-      now check = now ref = chain;
+      now check = now ref = chain
     else:
-      now ref = scope.maybeGenerateMemoised(chain);
-      if (ref) {
+      if not chain~isSimple():
+        now ref = scope.maybeGenerateMemoised(chain)
+      if ref:
         now check = t.assignmentExpression("=", ref, chain)
         node[replaceKey] = ref;
-      } else {
+      else:
         now check = now ref = chain;
-      }
 
     // Ensure call expressions have the proper `this`
     // `foo.bar()` has context `foo`.
