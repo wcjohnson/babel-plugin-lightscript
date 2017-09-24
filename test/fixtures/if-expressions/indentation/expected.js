@@ -1,3 +1,3 @@
-const x = a ? b ? c : null : d;
+const x = a ? b ? c : void 0 : d;
 
-const y = a ? b ? c : null : d ? e : null;
+const y = a ? b ? c : void 0 : d ? e : void 0;

@@ -11,4 +11,4 @@ comment 4
 */
 'use @oigroup/lightscript with safeCall';
 
-(typeof a === 'function' ? a() : null).b;
+(typeof a === 'function' ? a() : void 0).b;

@@ -1,11 +1,11 @@
-() => _ == null ? null : _.a;
+() => _ == null ? void 0 : _.a;
 
 () => {
   var _ref;
 
-  return (_ref = _.a) == null ? null : _ref.a;
+  return (_ref = _.a) == null ? void 0 : _ref.a;
 };() => {
   var _ref2;
 
-  return (_ref2 = f()) == null ? null : _ref2.x;
+  return (_ref2 = f()) == null ? void 0 : _ref2.x;
 };

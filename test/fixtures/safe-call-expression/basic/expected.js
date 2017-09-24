@@ -1,1 +1,1 @@
-typeof a === "function" ? a(b) : null;
+typeof a === "function" ? a(b) : void 0;

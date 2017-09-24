@@ -1,3 +1,3 @@
 const x = true ? (() => {
   throw new Error();
-})() : null;
+})() : void 0;

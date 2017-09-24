@@ -26,7 +26,7 @@ gatherSequenceExpressions(nodes: Array<Object>): ?Object ->
         alt = alternate // XXX: https://github.com/lightscript/lightscript/issues/39
         if (!cq) return
         nextCq = gatherSequenceExpressions([cq])
-        nextAlt = alt ? gatherSequenceExpressions([alt]) : t.nullLiteral()~atNode(cq)
+        nextAlt = alt ? gatherSequenceExpressions([alt]) : t.unaryExpression("void", t.numericLiteral(0)~atNode(cq), true)~atNode(cq)
         if (!nextCq || !nextAlt) return
 
         loc = getSurroundingLoc([test, nextCq, nextAlt])

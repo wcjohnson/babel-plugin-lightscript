@@ -199,12 +199,13 @@ Lightscript(babel) ->
 
       IfExpression(path): void ->
         // TODO: better source mapping here -- place implicit null at end of consequent?
-        const consequent = blockToExpression(path.get("consequent"));
+        consequent = blockToExpression(path.get("consequent"));
+        undef = path.scope.buildUndefinedNode();
 
         alternate = if path.node.alternate:
           blockToExpression(path.get("alternate"));
         else:
-          t.nullLiteral()~atNode(path.node)
+          undef~atNode(path.node)
 
         path.replaceWith(t.conditionalExpression(path.node.test, consequent, alternate)~atNode(path.node));
 

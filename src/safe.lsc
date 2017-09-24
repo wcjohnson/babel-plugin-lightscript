@@ -16,6 +16,7 @@ export transformExistentialExpression(path) ->
   )
 
 export replaceWithSafeCall(path, callExpr) ->
+  undef = path.scope.buildUndefinedNode()
   let callee, typeofExpr
 
   if is("MemberExpression", callExpr.callee):
@@ -32,7 +33,7 @@ export replaceWithSafeCall(path, callExpr) ->
     now { ref: callee, assign: typeofExpr } = hoistRef(path, callExpr.callee)
 
   // Generate actual safecall expr
-  // f?(x) -> (typeof f === "function") ? f(x) : null
+  // f?(x) -> (typeof f === "function") ? f(x) : undefined
   path.replaceWith(
     t.conditionalExpression(
       t.binaryExpression("===",
@@ -40,7 +41,7 @@ export replaceWithSafeCall(path, callExpr) ->
         t.stringLiteral("function")
       ),
       t.callExpression(callee, callExpr.arguments),
-      t.nullLiteral()
+      undef
     )~allAtLoc(getLoc(path.node))
   )
 
@@ -87,9 +88,11 @@ export transformSafeMemberExpression(path) ->
     else:
       break
 
+  undef = tail.scope.buildUndefinedNode()
+
   ternary = t.conditionalExpression(
     nullCheck
-    t.nullLiteral()~atNode(tail.node)
+    undef~atNode(tail.node)
     tail.node
   )~atNode(tail.node)
 

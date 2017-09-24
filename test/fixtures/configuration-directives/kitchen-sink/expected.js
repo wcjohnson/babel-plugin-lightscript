@@ -15,4 +15,4 @@
 // we do
 'use @oigroup/lightscript with safeCall';
 
-typeof what === 'function' ? what() : null;
+typeof what === 'function' ? what() : void 0;
