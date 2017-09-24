@@ -110,26 +110,6 @@ export registerLightscriptNodeTypes(t): void ->
       }
     })
 
-  if not t.hasType("TildeCallExpression"):
-    definePluginType("TildeCallExpression", {
-      visitor: ["left", "right", "arguments"],
-      aliases: ["CallExpression", "Expression"],
-      fields: {
-        left: {
-          validate: assertNodeType("Expression"),
-        },
-        right: {
-          validate: assertOneOf("Identifier", "MemberExpression"),
-        },
-        arguments: {
-          validate: chain(
-            assertValueType("array"),
-            assertEach(assertNodeType("Expression", "SpreadElement"))
-          ),
-        },
-      },
-    });
-
   if not t.hasType("NamedArrowDeclaration"):
     definePluginType("NamedArrowDeclaration", {
       builder: ["id", "params", "body", "skinny", "async", "generator"],

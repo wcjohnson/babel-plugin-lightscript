@@ -89,15 +89,6 @@ Lightscript(babel) ->
         else:
           comprehension.transformPlainObjectComprehension(path)
 
-      TildeCallExpression: {
-        enter(path): void ->
-          { node } = path
-          args = [ node.left, ...node.arguments ]
-          callExpr = t.callExpression(node.right, args)~atNode(node)
-          if node.optional: callExpr.optional = true
-          path.replaceWith(callExpr)
-      }
-
       CallExpression: {
         enter(path): void ->
           maybeTransformSafe(path)
