@@ -14,7 +14,7 @@ import { getShadowingIdentifiers, checkFalsePositiveReference } from "./variable
 import { ensureConstructor, bindMethodsInConstructor, bindMethods } from "./classes";
 import * as matching from "./match";
 import * as comprehension from "./comprehension";
-import { replaceWithSafeCall, transformSafeMemberExpression, transformExistentialExpression, maybeTransformSafe } from "./safe";
+import { transformExistentialExpression, maybeTransformSafe } from "./safe";
 import { replaceWithInlinedOperator } from "./inlinedOperators";
 import { transformForInArrayStatement, transformForInObjectStatement, lintForInArrayStatement, lintForInObjectStatement } from "./for";
 import { resetHelpers } from "./helpers";

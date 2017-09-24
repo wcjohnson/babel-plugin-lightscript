@@ -58,10 +58,6 @@ export default statementsToExpression(path, nodes: Array<Object>) ->
 
   if t.isSequenceExpression(seqExpr):
     exprs = seqExpr.expressions
-
-    if exprs.length >= 2 && path.parentPath.isExpressionStatement():
-      path._maybePopFromStatements(exprs)
-
     // could be just one element due to the previous maybe popping
     if exprs.length === 1: exprs[0] else: seqExpr
   elif seqExpr:
