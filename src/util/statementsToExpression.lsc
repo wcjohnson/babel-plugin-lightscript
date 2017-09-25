@@ -13,6 +13,7 @@ gatherSequenceExpressions(nodes: Array<Object>): ?Object ->
   exprs = []
   let ensureLastNull = true
 
+  // TODO: comprehension
   for elem node in nodes:
     now ensureLastNull = false
 
@@ -43,6 +44,7 @@ gatherSequenceExpressions(nodes: Array<Object>): ?Object ->
   if ensureLastNull:
     exprs.push(t.nullLiteral()~atNode(exprs[exprs.length - 1]))
 
+  // TODO: sourcemap
   if exprs.length == 1: exprs[0] else: t.sequenceExpression(exprs)
 
 toSequenceExpression(nodes: Array<Object>): ?Object ->

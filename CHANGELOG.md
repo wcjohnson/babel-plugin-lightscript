@@ -1,5 +1,7 @@
 # 3.0
 
+>This is a major release with breaking changes. This release is no longer strictly backward compatible with `lightscript@0.5.9`. Where compatibility has been broken, we believe we are correctly anticipating the future development of JavaScript and LightScript.
+
 ## Missing branches of conditional constructs produce `undefined`
 
 ### Change:
@@ -60,3 +62,29 @@ a == null ? void 0 : (_a = a[b++]) == null ? void 0 : _a.c;
 ```
 
 This is a **breaking change** to language semantics! Most user code should not be affected, as it should not rely on this kind of side effect ordering -- but please do note the possible impact here.
+
+### Rationale:
+
+Here we are converging with the direction that JavaScript proper is headed in, as well as picking up some bug fixes along the way.
+
+## Miscellaneous
+
+#### Conditional comprehension syntax change
+
+Conditional comprehensions were added in 2.0 (with the `{enhancedComprehension: true}` flag) using the `case` keyword:
+```js
+x = [
+  "first"
+  case shouldAddSecond: "second"
+]
+```
+
+The syntax has been changed to `only if`:
+```js
+x = [
+  "first"
+  only if shouldAddSecond: "second"
+]
+```
+
+The `only if` syntax makes it much clearer what this conditional comprehension code is doing.
