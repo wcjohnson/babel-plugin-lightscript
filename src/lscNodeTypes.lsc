@@ -1,328 +1,363 @@
 export registerLightscriptNodeTypes(t): void ->
-  if t.__hasLscNodeTypes: return
-  t.__hasLscNodeTypes = true
-
   {
     definePluginType, assertNodeType
     assertValueType, assertOneOf
     assertEach, chain
   } = t
 
-  definePluginType("ForInArrayStatement", {
-    visitor: ["idx", "elem", "array", "body"],
-    aliases: ["Scopable", "Statement", "For", "BlockParent", "Loop", "ForXStatement", "ForIn"],
-    fields: {
-      elem: {
-        validate: assertNodeType("Identifier"),
-        optional: true,
+  if not t.hasType("ForInArrayStatement"):
+    definePluginType("ForInArrayStatement", {
+      visitor: ["idx", "elem", "array", "body"],
+      aliases: ["Scopable", "Statement", "For", "BlockParent", "Loop", "ForXStatement", "ForIn"],
+      fields: {
+        elem: {
+          validate: assertNodeType("Identifier"),
+          optional: true,
+        },
+        idx: {
+          validate: assertNodeType("Identifier"),
+          optional: true,
+        },
+        array: {
+          validate: assertNodeType("Expression"),
+        },
+        body: {
+          validate: assertNodeType("Statement"),
+        },
       },
-      idx: {
-        validate: assertNodeType("Identifier"),
-        optional: true,
-      },
-      array: {
-        validate: assertNodeType("Expression"),
-      },
-      body: {
-        validate: assertNodeType("Statement"),
-      },
-    },
-  });
+    });
 
-  definePluginType("ForInObjectStatement", {
-    visitor: ["key", "val", "object", "body"],
-    aliases: ["Scopable", "Statement", "For", "BlockParent", "Loop", "ForXStatement", "ForIn"],
-    fields: {
-      key: {
-        validate: assertNodeType("Identifier"),
-        optional: true,
+  if not t.hasType("ForInObjectStatement"):
+    definePluginType("ForInObjectStatement", {
+      visitor: ["key", "val", "object", "body"],
+      aliases: ["Scopable", "Statement", "For", "BlockParent", "Loop", "ForXStatement", "ForIn"],
+      fields: {
+        key: {
+          validate: assertNodeType("Identifier"),
+          optional: true,
+        },
+        val: {
+          validate: assertNodeType("Identifier"),
+          optional: true,
+        },
+        object: {
+          validate: assertNodeType("Expression"),
+        },
+        body: {
+          validate: assertNodeType("Statement"),
+        },
       },
-      val: {
-        validate: assertNodeType("Identifier"),
-        optional: true,
-      },
-      object: {
-        validate: assertNodeType("Expression"),
-      },
-      body: {
-        validate: assertNodeType("Statement"),
-      },
-    },
-  });
+    });
 
-  definePluginType("ArrayComprehension", {
-    visitor: ["loop", "elements"],
-    aliases: ["ArrayExpression", "Expression"],
-    fields: {
-      loop: { // compatibility with vanilla lsc comprehensions
-        validate: assertNodeType("ForStatement")
-        optional: true
-      }
-      elements: {
-        validate: chain(
-          assertValueType("array")
-          assertEach(assertNodeType("Expression", "SpreadElement", "Comprehension"))
-        )
-        optional: true
-      }
-    },
-  });
+  if not t.hasType("ArrayComprehension"):
+    definePluginType("ArrayComprehension", {
+      visitor: ["loop", "elements"],
+      aliases: ["ArrayExpression", "Expression"],
+      fields: {
+        loop: { // compatibility with vanilla lsc comprehensions
+          validate: assertNodeType("ForStatement")
+          optional: true
+        }
+        elements: {
+          validate: chain(
+            assertValueType("array")
+            assertEach(assertNodeType("Expression", "SpreadElement", "Comprehension"))
+          )
+          optional: true
+        }
+      },
+    });
 
-  definePluginType("ObjectComprehension", {
-    visitor: ["loop", "properties"],
-    aliases: ["ObjectExpression", "Expression"],
-    fields: {
-      loop: { // compatibility with vanilla lsc comprehensions
-        validate: assertNodeType("ForStatement")
-        optional: true
-      }
-      properties: {
-        validate: chain(
-          assertValueType("array")
-          assertEach(assertNodeType("ObjectProperty", "SpreadProperty", "Comprehension"))
-        )
-        optional: true
-      }
-    },
-  });
+  if not t.hasType("ObjectComprehension"):
+    definePluginType("ObjectComprehension", {
+      visitor: ["loop", "properties"],
+      aliases: ["ObjectExpression", "Expression"],
+      fields: {
+        loop: { // compatibility with vanilla lsc comprehensions
+          validate: assertNodeType("ForStatement")
+          optional: true
+        }
+        properties: {
+          validate: chain(
+            assertValueType("array")
+            assertEach(assertNodeType("ObjectProperty", "SpreadProperty", "Comprehension"))
+          )
+          optional: true
+        }
+      },
+    });
 
-  definePluginType("LoopComprehension", {
-    builder: ["loop"]
-    visitor: ["loop"]
-    aliases: ["Comprehension"]
-    fields: {
-      loop: {
-        validate: assertNodeType("ForStatement")
+  if not t.hasType("LoopComprehension"):
+    definePluginType("LoopComprehension", {
+      builder: ["loop"]
+      visitor: ["loop"]
+      aliases: ["Comprehension"]
+      fields: {
+        loop: {
+          validate: assertNodeType("ForStatement")
+        }
       }
-    }
-  })
+    })
 
-  definePluginType("CaseComprehension", {
-    visitor: ["conditional"]
-    aliases: ["Comprehension"]
-    fields: {
-      conditional: {
-        validate: assertNodeType("IfStatement")
+  if not t.hasType("CaseComprehension"):
+    definePluginType("CaseComprehension", {
+      visitor: ["conditional"]
+      aliases: ["Comprehension"]
+      fields: {
+        conditional: {
+          validate: assertNodeType("IfStatement")
+        }
       }
-    }
-  })
+    })
 
-  definePluginType("TildeCallExpression", {
-    visitor: ["left", "right", "arguments"],
-    aliases: ["CallExpression", "Expression"],
-    fields: {
-      left: {
-        validate: assertNodeType("Expression"),
+  if not t.hasType("TildeCallExpression"):
+    definePluginType("TildeCallExpression", {
+      visitor: ["left", "right", "arguments"],
+      aliases: ["CallExpression", "Expression"],
+      fields: {
+        left: {
+          validate: assertNodeType("Expression"),
+        },
+        right: {
+          validate: assertOneOf("Identifier", "MemberExpression"),
+        },
+        arguments: {
+          validate: chain(
+            assertValueType("array"),
+            assertEach(assertNodeType("Expression", "SpreadElement"))
+          ),
+        },
       },
-      right: {
-        validate: assertOneOf("Identifier", "MemberExpression"),
-      },
-      arguments: {
-        validate: chain(
-          assertValueType("array"),
-          assertEach(assertNodeType("Expression", "SpreadElement"))
-        ),
-      },
-    },
-  });
+    });
 
-  definePluginType("NamedArrowDeclaration", {
-    builder: ["id", "params", "body", "skinny", "async", "generator"],
-    visitor: ["id", "params", "body", "returnType", "typeParameters"],
-    aliases: [
-      "Scopable",
-      "Function",
-      "BlockParent",
-      "FunctionParent",
-      "Statement",
-      "Pureish",
-      "Declaration",
-      "FunctionDeclaration",
-      "NamedArrowFunction",
-    ],
-    fields: {  // DUP in NamedArrowMemberExpression
-      id: {
-        validate: assertNodeType("Identifier"),
+  if not t.hasType("NamedArrowDeclaration"):
+    definePluginType("NamedArrowDeclaration", {
+      builder: ["id", "params", "body", "skinny", "async", "generator"],
+      visitor: ["id", "params", "body", "returnType", "typeParameters"],
+      aliases: [
+        "Scopable",
+        "Function",
+        "BlockParent",
+        "FunctionParent",
+        "Statement",
+        "Pureish",
+        "Declaration",
+        "FunctionDeclaration",
+        "NamedArrowFunction",
+      ],
+      fields: {  // DUP in NamedArrowMemberExpression
+        id: {
+          validate: assertNodeType("Identifier"),
+        },
+        params: {
+          validate: chain(
+            assertValueType("array"),
+            assertEach(assertNodeType("LVal"))
+          ),
+        },
+        body: {
+          validate: assertNodeType("BlockStatement", "Expression"),
+        },
+        skinny: {
+          validate: assertValueType("boolean")
+        },
+        generator: {
+          default: false,
+          validate: assertValueType("boolean")
+        },
+        async: {
+          default: false,
+          validate: assertValueType("boolean")
+        },
       },
-      params: {
-        validate: chain(
-          assertValueType("array"),
-          assertEach(assertNodeType("LVal"))
-        ),
-      },
-      body: {
-        validate: assertNodeType("BlockStatement", "Expression"),
-      },
-      skinny: {
-        validate: assertValueType("boolean")
-      },
-      generator: {
-        default: false,
-        validate: assertValueType("boolean")
-      },
-      async: {
-        default: false,
-        validate: assertValueType("boolean")
-      },
-    },
-  });
+    });
 
-  definePluginType("NamedArrowExpression", {
-    inherits: "NamedArrowDeclaration",
-    aliases: [
-      "Scopable",
-      "Function",
-      "FunctionExpression",
-      "BlockParent",
-      "FunctionParent",
-      "Expression",
-      "Pureish",
-      "NamedArrowFunction",
-    ],
-  });
+  if not t.hasType("NamedArrowExpression"):
+    definePluginType("NamedArrowExpression", {
+      inherits: "NamedArrowDeclaration",
+      aliases: [
+        "Scopable",
+        "Function",
+        "FunctionExpression",
+        "BlockParent",
+        "FunctionParent",
+        "Expression",
+        "Pureish",
+        "NamedArrowFunction",
+      ],
+    });
 
-  definePluginType("NamedArrowMemberExpression", {
-    inherits: "NamedArrowExpression",
-    fields: {  // c/p from NamedArrowExpression except for `object`
-      id: {
-        validate: assertNodeType("Identifier"),
+  if not t.hasType("NamedArrowMemberExpression"):
+    definePluginType("NamedArrowMemberExpression", {
+      inherits: "NamedArrowExpression",
+      fields: {  // c/p from NamedArrowExpression except for `object`
+        id: {
+          validate: assertNodeType("Identifier"),
+        },
+        object: {
+          validate: assertNodeType("Identifier", "MemberExpression"),
+        },
+        params: {
+          validate: chain(
+            assertValueType("array"),
+            assertEach(assertNodeType("LVal"))
+          ),
+        },
+        body: {
+          validate: assertNodeType("BlockStatement", "Expression"),
+        },
+        skinny: {
+          validate: assertValueType("boolean")
+        },
+        generator: {
+          default: false,
+          validate: assertValueType("boolean")
+        },
+        async: {
+          default: false,
+          validate: assertValueType("boolean")
+        },
       },
-      object: {
-        validate: assertNodeType("Identifier", "MemberExpression"),
-      },
-      params: {
-        validate: chain(
-          assertValueType("array"),
-          assertEach(assertNodeType("LVal"))
-        ),
-      },
-      body: {
-        validate: assertNodeType("BlockStatement", "Expression"),
-      },
-      skinny: {
-        validate: assertValueType("boolean")
-      },
-      generator: {
-        default: false,
-        validate: assertValueType("boolean")
-      },
-      async: {
-        default: false,
-        validate: assertValueType("boolean")
-      },
-    },
-  });
+    });
 
-  definePluginType("IfExpression", {
-    visitor: ["test", "consequent", "alternate"],
-    aliases: ["Expression", "Conditional"],
-    fields: {
-      test: {
-        validate: assertNodeType("Expression")
-      },
-      consequent: {
-        validate: assertNodeType("Expression", "BlockStatement", "ExpressionStatement")
-      },
-      alternate: {
-        optional: true,
-        validate: assertNodeType("Expression", "BlockStatement", "ExpressionStatement")
+  if not t.hasType("IfExpression"):
+    definePluginType("IfExpression", {
+      visitor: ["test", "consequent", "alternate"],
+      aliases: ["Expression", "Conditional"],
+      fields: {
+        test: {
+          validate: assertNodeType("Expression")
+        },
+        consequent: {
+          validate: assertNodeType("Expression", "BlockStatement", "ExpressionStatement")
+        },
+        alternate: {
+          optional: true,
+          validate: assertNodeType("Expression", "BlockStatement", "ExpressionStatement")
+        }
       }
-    }
-  });
+    });
 
-  definePluginType("SafeAwaitExpression", {
-    builder: ["argument"],
-    visitor: ["argument"],
-    aliases: ["AwaitExpression", "Expression", "Terminatorless"],
-    fields: {
-      argument: {
-        validate: assertNodeType("Expression"),
+  if not t.hasType("SafeAwaitExpression"):
+    definePluginType("SafeAwaitExpression", {
+      builder: ["argument"],
+      visitor: ["argument"],
+      aliases: ["AwaitExpression", "Expression", "Terminatorless"],
+      fields: {
+        argument: {
+          validate: assertNodeType("Expression"),
+        }
       }
-    }
-  });
+    });
 
-  definePluginType("SafeMemberExpression", {
-    inherits: "MemberExpression",
-    aliases: ["MemberExpression", "Expression", "LVal"],
-  });
+  if not t.hasType("SafeMemberExpression"):
+    definePluginType("SafeMemberExpression", {
+      inherits: "MemberExpression",
+      aliases: ["MemberExpression", "Expression", "LVal"],
+    });
 
-  definePluginType("ExistentialExpression", {
-    builder: ["argument"],
-    visitor: ["argument"],
-    aliases: ["Expression"],
-    fields: {
-      argument: {
-        validate: assertNodeType("Expression"),
+  if not t.hasType("ExistentialExpression"):
+    definePluginType("ExistentialExpression", {
+      builder: ["argument"],
+      visitor: ["argument"],
+      aliases: ["Expression"],
+      fields: {
+        argument: {
+          validate: assertNodeType("Expression"),
+        }
       }
-    }
-  });
+    });
 
-  definePluginType("MatchExpression", {
-    builder: ["discriminant", "cases"],
-    visitor: ["discriminant", "cases"],
-    aliases: ["Expression", "Conditional"],
-    fields: {
-      discriminant: {
-        validate: assertNodeType("Expression")
+  if not t.hasType("MatchExpression"):
+    definePluginType("MatchExpression", {
+      builder: ["discriminant", "cases"],
+      visitor: ["discriminant", "cases"],
+      aliases: ["Expression", "Conditional"],
+      fields: {
+        discriminant: {
+          validate: assertNodeType("Expression")
+        },
+        cases: {
+          validate: chain(assertValueType("array"), assertEach(assertNodeType("MatchCase")))
+        }
+      }
+    });
+
+  if not t.hasType("MatchStatement"):
+    definePluginType("MatchStatement", {
+      builder: ["discriminant", "cases"],
+      visitor: ["discriminant", "cases"],
+      aliases: ["Statement", "Conditional"],
+      fields: {
+        discriminant: {
+          validate: assertNodeType("Expression")
+        },
+        cases: {
+          validate: chain(assertValueType("array"), assertEach(assertNodeType("MatchCase")))
+        }
+      }
+    });
+
+  if not t.hasType("MatchCase"):
+    definePluginType("MatchCase", {
+      builder: ["outerGuard", "atoms", "binding", "assertive", "innerGuard", "consequent"],
+      visitor: ["test", "outerGuard", "atoms", "binding", "innerGuard", "consequent"],
+      fields: {
+        // XXX: v3 compatibility, remove when syntax settles
+        test: {
+          validate: assertNodeType("Expression", "MatchElse")
+          optional: true
+        }
+        outerGuard: {
+          validate: assertNodeType("Expression", "MatchElse")
+          optional: true
+        }
+        atoms: {
+          validate: chain(assertValueType("array"), assertEach(assertNodeType("Expression")))
+          optional: true
+        }
+        binding: {
+          validate: assertNodeType("ArrayPattern", "ObjectPattern")
+          optional: true
+        }
+        assertive: {
+          validate: assertValueType("boolean")
+          optional: true
+        }
+        innerGuard: {
+          validate: assertNodeType("Expression")
+          optional: true
+        }
+        consequent: {
+          validate: assertNodeType("Expression", "Statement")
+        }
+      }
+    });
+
+  if not t.hasType("MatchElse"):
+    definePluginType("MatchElse", {
+    });
+
+  if not t.hasType("MatchPlaceholderExpression"):
+    definePluginType("MatchPlaceholderExpression", {
+      aliases: ["Expression"]
+    });
+
+  if not t.hasType("PlaceholderExpression"):
+    definePluginType("PlaceholderExpression", {
+      aliases: ["Expression"]
+    });
+
+  if not t.hasType("PipeCallExpression"):
+    definePluginType("PipeCallExpression", {
+      visitor: ["left", "right"],
+      aliases: ["CallExpression", "Expression"],
+      fields: {
+        left: {
+          validate: assertNodeType("Expression"),
+        },
+        right: {
+          validate: assertNodeType("Expression"),
+        },
       },
-      cases: {
-        validate: chain(assertValueType("array"), assertEach(assertNodeType("MatchCase")))
-      }
-    }
-  });
-
-  definePluginType("MatchStatement", {
-    builder: ["discriminant", "cases"],
-    visitor: ["discriminant", "cases"],
-    aliases: ["Statement", "Conditional"],
-    fields: {
-      discriminant: {
-        validate: assertNodeType("Expression")
-      },
-      cases: {
-        validate: chain(assertValueType("array"), assertEach(assertNodeType("MatchCase")))
-      }
-    }
-  });
-
-  definePluginType("MatchCase", {
-    builder: ["outerGuard", "atoms", "binding", "assertive", "innerGuard", "consequent"],
-    visitor: ["test", "outerGuard", "atoms", "binding", "innerGuard", "consequent"],
-    fields: {
-      // XXX: v3 compatibility, remove when syntax settles
-      test: {
-        validate: assertNodeType("Expression", "MatchElse")
-        optional: true
-      }
-      outerGuard: {
-        validate: assertNodeType("Expression", "MatchElse")
-        optional: true
-      }
-      atoms: {
-        validate: chain(assertValueType("array"), assertEach(assertNodeType("Expression")))
-        optional: true
-      }
-      binding: {
-        validate: assertNodeType("ArrayPattern", "ObjectPattern")
-        optional: true
-      }
-      assertive: {
-        validate: assertValueType("boolean")
-        optional: true
-      }
-      innerGuard: {
-        validate: assertNodeType("Expression")
-        optional: true
-      }
-      consequent: {
-        validate: assertNodeType("Expression", "Statement")
-      }
-    }
-  });
-
-  definePluginType("MatchElse", {
-  });
-
-  definePluginType("MatchPlaceholderExpression", {
-    aliases: ["Expression"]
-  });
+    });

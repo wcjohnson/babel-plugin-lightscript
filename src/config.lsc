@@ -61,6 +61,18 @@ export getMetadata() ->
         description: "Resolve object-block ambiguity by parsing object literals whenever possible."
         valueType: "boolean"
       }
+      placeholderArgs: {
+        description: "Specify arguments for a function using placeholders in the body."
+        valueType: "boolean"
+      }
+      placeholder: {
+        description: "Specify an identifier to be transformed into PlaceholderExpression."
+        valueType: "string"
+      }
+      pipeCall: {
+        description: "a |> b infix binary operator invokes b(a)"
+        valueType: "boolean"
+      }
     }
   }
 
@@ -83,6 +95,10 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
   if pluginOpts?.flippedImports: plugins.push("flippedImports")
   if pluginOpts?.enhancedComprehension: plugins.push("enhancedComprehension")
   if pluginOpts?.preferObjectLiteral: plugins.push("objectBlockAmbiguity_preferObject")
+  if pluginOpts?.placeholderArgs: plugins.push("syntacticPlaceholder")
+  if pluginOpts?.placeholder:
+    parserOpts.placeholder = pluginOpts.placeholder
+  if pluginOpts?.pipeCall: plugins.push("pipeCall")
 
   // TODO: watch upstream on pattern matching; default to their syntax when complete
   // patternMatchingVersion = pluginOpts?.patternMatching or "v4"

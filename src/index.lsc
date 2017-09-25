@@ -2,11 +2,14 @@ import is, { isa } from "./is"
 
 import { placeAtNode as atNode, placeTreeAtLocWhenUnplaced as allAtLoc, getLoc, placeAtLoc as atLoc, getSurroundingLoc } from 'ast-loc-utils'
 
+import patch from './util/babelTypesPatch'
+import { registerLightscriptNodeTypes } from './lscNodeTypes'
+
 import {
   addImplicitReturns, replaceWithPlainFunction, replaceWithArrowFunction,
-  replaceWithBoundFunction, isNamedArrowFunction
+  replaceWithBoundFunction
 } from "./functions";
-import { blockToExpression, toBlockStatement, iife } from "./blocks";
+import { blockToExpression, iife } from "./blocks";
 import { getShadowingIdentifiers, checkFalsePositiveReference } from "./variables";
 import { ensureConstructor, bindMethodsInConstructor, bindMethods } from "./classes";
 import * as matching from "./match";
@@ -18,9 +21,14 @@ import { resetHelpers } from "./helpers";
 import { markIdentifier } from "./stdlib";
 import { locatePluginOpts, getParserOpts, parseConfigurationDirectives } from './config'
 import { getFileTypeInfo, createCompilerState, initializeCompilerState, postprocess } from './compilerState'
+import { fixAst } from './fixAst'
+import { transformPlaceholders } from './placeholders'
+import { transformPipeOperator } from './pipe'
 
 Lightscript(babel) ->
-  const { types: t } = babel;
+  { types: t } = babel
+  patch(t)
+  registerLightscriptNodeTypes(t)
 
   // traverse as top-level item so as to run before other babel plugins
   // (and avoid traversing any of their output)
@@ -40,15 +48,30 @@ Lightscript(babel) ->
     // TODO: helpers -> compilerState
     resetHelpers(path)
 
+    //// AST transforms
+    // Perform basic ast fixups (block bodies, etc)
+    fixAst(path)
+
+    // Transform placeholder expressions first.
+    if compilerState.opts.placeholderArgs:
+      transformPlaceholders(path)
+
+    // Main LSC transforms
     path.traverse({
+      PipeCallExpression(path): void ->
+        transformPipeOperator(path)
 
       ForInArrayStatement(path): void ->
+        // TODO: push the linter conditional down into the transform
+        // and get linter status from compilerState
         if opts.__linter:
           lintForInArrayStatement(path)
         else:
           transformForInArrayStatement(path)
 
       ForInObjectStatement(path): void ->
+        // TODO: push the linter conditional down into the transform
+        // and get linter status from compilerState
         if opts.__linter:
           lintForInObjectStatement(path)
         else:
@@ -123,11 +146,6 @@ Lightscript(babel) ->
           replaceWithPlainFunction(path)
         elif (path.node.generator):
           replaceWithBoundFunction(path)
-
-      Method(path): void ->
-        if isNamedArrowFunction(path.node):
-          // XXX: non-idiomatic ast mutation, could cause problems...
-          path.node.body = toBlockStatement(path.node.body)
 
       ClassBody(path): void ->
         let fatArrows = [], fatStaticArrows = [], constructorPath;

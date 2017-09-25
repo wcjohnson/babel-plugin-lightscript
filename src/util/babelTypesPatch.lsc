@@ -1,7 +1,4 @@
 export default patch(t) ->
-  if t.__hasPluggableTypesPatch: return t
-  t.__hasPluggableTypesPatch = true
-
   t.getType(val) -> {
     if (Array.isArray(val)) {
       return "array";
@@ -112,6 +109,10 @@ export default patch(t) ->
     return validate;
   }
 
+  t.hasType(type: string): boolean -> {
+    return (t.TYPES.indexOf(type) > -1)
+  }
+
   t.definePluginType(
     type: string,
     opts: {
@@ -123,6 +124,9 @@ export default patch(t) ->
       deprecatedAlias?: string;
     } = {},
   ) -> {
+    // No duplicate reg
+    if (t.TYPES.indexOf(type) > -1) return;
+
     const inherits = {};
     if (opts.inherits) {
       inherits.visitor = t.VISITOR_KEYS[opts.inherits];
