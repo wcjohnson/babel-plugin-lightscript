@@ -17,6 +17,8 @@ export getTails(path, allowLoops) ->
     | ~isa("IfStatement"):
       add(path.get("consequent"))
       add(path.get("alternate"))
+    | ~isa("LabeledStatement"):
+      add(path.get("body"))
     | ~isa("DoExpression"):
       add(path.get("body"))
     | if allowLoops when ~isa("For"), ~isa("While"):
