@@ -1,1 +1,1 @@
-{for elem x in arr: 1}
+{...for elem x in arr: 1}

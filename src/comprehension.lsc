@@ -3,7 +3,7 @@ import { transformTails } from './tails'
 import { isa } from './is'
 import { toStatement } from './blocks'
 
-import { getLoc, placeAtLoc as atLoc, placeAtNode as atNode, getSurroundingLoc, span } from 'ast-loc-utils'
+import { getLoc, placeAtLoc as atLoc, placeAtNode as atNode, getSurroundingLoc, span, placeTreeAtLocWhenUnplaced as allAtLoc } from 'ast-loc-utils'
 
 validateComprehensionBody(path) ->
   path.traverse({
@@ -14,7 +14,7 @@ validateComprehensionBody(path) ->
     AwaitExpression(awaitPath) ->
       throw awaitPath.buildCodeFrameError(
         "`await` is not allowed within Comprehensions; " +
-        "instead, await the Comprehension (eg; `y <- [for x of xs: x]`)."
+        "instead, await the Comprehension."
       )
 
     YieldExpression(yieldPath) ->
@@ -37,32 +37,59 @@ iife(body, id, initializer) ->
     []
   )~atLoc(loc)
 
-retailObject(path, id, transformPathName, returnPathName) ->
+isSimpleObject(objExpr) ->
+  objExpr.properties?.length == 1 and
+  (not objExpr~isa("ObjectComprehension")) and
+  objExpr.properties[0].type == "ObjectProperty" and
+  (not objExpr.properties[0].decorators?.length)
+
+retailObject(info, path, id, transformPathName, returnPathName) ->
   transformPath = path.get(transformPathName)
   validateComprehensionBody(transformPath)
   transformTails(
     transformPath
     true
     false
-    (seqExpr, tailPath) ->
-      if (
-        seqExpr.type !== "SequenceExpression" or
-        seqExpr.expressions.length !== 2
-      ):
-        throw tailPath.buildCodeFrameError("Object comprehensions must end" +
-        " with a (key, value) pair.")
+    (expr, tailPath) ->
+      if info.isLegacy:
+        if (
+          expr.type !== "SequenceExpression" or
+          expr.expressions.length !== 2
+        ):
+          throw tailPath.buildCodeFrameError("Object comprehensions must end" +
+          " with a (key, value) pair.")
 
-      [ keyExpr, valExpr ] = seqExpr.expressions
+        [ keyExpr, valExpr ] = expr.expressions
 
-      t.assignmentExpression("=",
-        t.memberExpression(id, keyExpr, true)~atNode(seqExpr),
-        valExpr
-      )~atNode(seqExpr)
+        return t.assignmentExpression("=",
+          t.memberExpression(id, keyExpr, true)~atNode(expr),
+          valExpr
+        )~atNode(expr)
+
+      if not expr~isa("ObjectExpression"):
+        throw tailPath.buildCodeFrameError("Object comprehensions must end with an object expression.")
+
+      if expr~isSimpleObject():
+        // Simple object case: { [k]: v } --> obj[k] = v
+        { properties: [prop] } = expr
+        t.assignmentExpression("=",
+          t.memberExpression(id, prop.key, prop.computed)~atNode(expr),
+          prop.value
+        )~atNode(expr)
+      else:
+        // Complex object case: { ... } -> Object.assign(obj, { ... })
+        t.callExpression(
+          t.memberExpression(
+            t.identifier("Object")
+            t.identifier("assign")
+          )~allAtLoc(expr~getLoc())
+          [id, expr]
+        )~atNode(expr)
   )
 
   path.get(returnPathName).node
 
-retailArray(path, id, transformPathName, returnPathName) ->
+retailArray(info, path, id, transformPathName, returnPathName) ->
   transformPath = path.get(transformPathName)
   validateComprehensionBody(transformPath)
   transformTails(
@@ -74,23 +101,38 @@ retailArray(path, id, transformPathName, returnPathName) ->
         t.memberExpression(id, t.identifier("push")~atNode(expr))~atNode(expr)
         [expr]
       )~atNode(expr)
+
+      // XXX: below code is for allowing ArrayExpressions in tail position
+      // if not expr~isa("ArrayExpression"):
+      //   throw tailPath.buildCodeFrameError("Array comprehensions must end with an array expression.")
+
+      // t.callExpression(
+      //   t.memberExpression(id, t.identifier("push")~atNode(expr))~atNode(expr)
+      //   if expr.elements?.length == 1 and (not expr~isa("ArrayComprehension")):
+      //     // Shortcut for simple array exprs: just array.push the single entry.
+      //     [expr.elements[0]]
+      //   else:
+      //     // ES6-spread the tail array onto the base array
+      //     [t.spreadElement(expr)~atNode(expr)]
+      // )~atNode(expr)
   )
 
   path.get(returnPathName).node
 
-transformLoop(path, ref, isObject, stmts) ->
-  if isObject:
-    stmts.push(retailObject(path, ref, "loop.body", "loop"))
+transformLoop(info, path, ref, stmts) ->
+  if info.isObject:
+    stmts.push(retailObject(info, path, ref, "loop.body", "loop"))
   else:
-    stmts.push(retailArray(path, ref, "loop.body", "loop"))
+    stmts.push(retailArray(info, path, ref, "loop.body", "loop"))
 
-transformCase(path, ref, isObject, stmts) ->
-  if isObject:
-    stmts.push(retailObject(path, ref, "conditional", "conditional"))
+transformCase(info, path, ref, stmts) ->
+  if info.isObject:
+    stmts.push(retailObject(info, path, ref, "conditional", "conditional"))
   else:
-    stmts.push(retailArray(path, ref, "conditional", "conditional"))
+    stmts.push(retailArray(info, path, ref, "conditional", "conditional"))
 
-pushBundle(stmts, ref, bundle, isObject) ->
+pushBundle(info, stmts, ref, bundle) ->
+  { isObject } = info
   if isObject:
     // _ref.k1 = v1; _ref.k2 = v2; ...
     for elem property in bundle:
@@ -111,7 +153,8 @@ pushBundle(stmts, ref, bundle, isObject) ->
       )~atLoc(loc)~toStatement()
     )
 
-export transformComprehension(path, isObject) ->
+export transformComprehension(info) ->
+  { path, isObject } = info
   { node } = path
   elements = if isObject: node.properties else: node.elements
   nodeKey = if isObject: "properties" else: "elements"
@@ -119,6 +162,7 @@ export transformComprehension(path, isObject) ->
   id = path.scope.generateUidIdentifier(isObject ? "obj" : "arr")~t.clone()~atLoc(getLoc(node)~span(1))
 
   let i = 0, len = elements.length, bundle = [], first = true, initializer
+
   while i < len:
     element = elements[i]
     if element~isa("Comprehension"):
@@ -126,21 +170,22 @@ export transformComprehension(path, isObject) ->
         now initializer = bundle
         now first = false
       else:
-        if bundle.length > 0: stmts~pushBundle(id, bundle, isObject)
+        if bundle.length > 0: pushBundle(info, stmts, id, bundle)
       now bundle = []
 
       match element:
         | ~isa("LoopComprehension"):
-          path.get(`${nodeKey}.${i}`)~transformLoop(id, isObject, stmts)
+          info~transformLoop(path.get(`${nodeKey}.${i}`), id, stmts)
         | ~isa("CaseComprehension"):
-          path.get(`${nodeKey}.${i}`)~transformCase(id, isObject, stmts)
-        | else: throw new Error("Invalid comprehension node (this is an internal error)")
+          info~transformCase(path.get(`${nodeKey}.${i}`), id, stmts)
+        | else:
+          throw new Error("Invalid comprehension node (this is an internal error)")
     else:
       bundle.push(element)
 
     i++
 
-  if bundle.length > 0: stmts~pushBundle(id, bundle, isObject)
+  if bundle.length > 0: pushBundle(info, stmts, id, bundle)
 
   initializerLoc = if initializer.length == 0:
     getLoc(node)~span(1)
@@ -154,36 +199,31 @@ export transformComprehension(path, isObject) ->
 
   path.replaceWith(stmts~iife(id, finalInitializer))
 
+getComprehensionInfo(path, isObject, isLegacy) ->
+  { path, isObject, isLegacy }
+
 export transformArrayComprehension(path): void ->
-  transformComprehension(path, false)
+  getComprehensionInfo(path, false, false)~transformComprehension()
 
 export transformObjectComprehension(path): void ->
-  transformComprehension(path, true)
+  getComprehensionInfo(path, true, false)~transformComprehension()
+
+export transformLegacyComprehension(path, isObject): void ->
+  // Shim legacy comprehensions onto new model
+  { node } = path
+  { loop } = node
+  if loop:
+    delete node.loop
+    // TODO: fix babel patch so there's a builder for this...
+    node[if isObject: "properties" else: "elements"] = [ {
+      type: "LoopComprehension"
+      loop
+    }~atNode(node) ]
+    path.replaceWith(node)
+    getComprehensionInfo(path, isObject, true)~transformComprehension()
 
 export transformPlainArrayComprehension(path): void ->
-  // Shim V1 onto V2
-  { node } = path
-  { loop } = node
-  if loop:
-    delete node.loop
-    // TODO: fix babel patch so there's a builder for this...
-    node.elements = [ {
-      type: "LoopComprehension"
-      loop
-    }~atNode(node) ]
-    path.replaceWith(node)
-    transformArrayComprehension(path)
+  transformLegacyComprehension(path, false)
 
 export transformPlainObjectComprehension(path): void ->
-  // Shim V1 onto V2
-  { node } = path
-  { loop } = node
-  if loop:
-    delete node.loop
-    // TODO: fix babel patch so there's a builder for this...
-    node.properties = [ {
-      type: "LoopComprehension"
-      loop
-    }~atNode(node) ]
-    path.replaceWith(node)
-    transformObjectComprehension(path)
+  transformLegacyComprehension(path, true)

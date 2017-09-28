@@ -94,7 +94,7 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
   if pluginOpts?.bangCall != false: plugins.push("bangCall")
   if not pluginOpts?.noEnforcedSubscriptIndentation: plugins.push("enforceSubscriptIndentation")
   if pluginOpts?.flippedImports: plugins.push("flippedImports")
-  if pluginOpts?.enhancedComprehension: plugins.push("enhancedComprehension")
+  if pluginOpts?.enhancedComprehension: plugins.push("splatComprehension")
   if pluginOpts?.whiteblock: plugins.push("whiteblockOnly")
   if pluginOpts?.placeholderArgs: plugins.push("syntacticPlaceholder")
   if pluginOpts?.placeholder:

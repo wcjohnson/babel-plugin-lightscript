@@ -1,1 +1,1 @@
-{for elem x in arr: (x, f(x))}
+{ ...for elem x in arr: ({[x]: f(x)}) }

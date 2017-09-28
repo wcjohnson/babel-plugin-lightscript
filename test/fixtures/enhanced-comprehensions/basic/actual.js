@@ -1,1 +1,1 @@
-[for elem x in y: x]
+[...for elem x in y: x]
