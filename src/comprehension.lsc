@@ -46,6 +46,7 @@ isSimpleObject(objExpr) ->
 retailObject(info, path, id, transformPathName, returnPathName) ->
   transformPath = path.get(transformPathName)
   validateComprehensionBody(transformPath)
+  let foundOne = false
   transformTails(
     transformPath
     true
@@ -59,6 +60,7 @@ retailObject(info, path, id, transformPathName, returnPathName) ->
           throw tailPath.buildCodeFrameError("Object comprehensions must end" +
           " with a (key, value) pair.")
 
+        now foundOne = true
         [ keyExpr, valExpr ] = expr.expressions
 
         return t.assignmentExpression("=",
@@ -68,6 +70,8 @@ retailObject(info, path, id, transformPathName, returnPathName) ->
 
       if not expr~isa("ObjectExpression"):
         throw tailPath.buildCodeFrameError("Object comprehensions must end with an object expression.")
+
+      now foundOne = true
 
       if expr~isSimpleObject():
         // Simple object case: { [k]: v } --> obj[k] = v
@@ -87,16 +91,21 @@ retailObject(info, path, id, transformPathName, returnPathName) ->
         )~atNode(expr)
   )
 
+  if not foundOne:
+    throw path.buildCodeFrameError("Object comprehensions must end with an object expression.")
+
   path.get(returnPathName).node
 
 retailArray(info, path, id, transformPathName, returnPathName) ->
   transformPath = path.get(transformPathName)
   validateComprehensionBody(transformPath)
+  let foundOne = false
   transformTails(
     transformPath
     true
     false
     (expr) ->
+      now foundOne = true
       t.callExpression(
         t.memberExpression(id, t.identifier("push")~atNode(expr))~atNode(expr)
         [expr]
@@ -116,6 +125,9 @@ retailArray(info, path, id, transformPathName, returnPathName) ->
       //     [t.spreadElement(expr)~atNode(expr)]
       // )~atNode(expr)
   )
+
+  if not foundOne:
+    throw path.buildCodeFrameError("Array comprehensions must end with an expression.")
 
   path.get(returnPathName).node
 
