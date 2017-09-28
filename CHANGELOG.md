@@ -26,6 +26,32 @@ This is a **breaking change** to the semantics of the language! If you are direc
 
 `undefined` is the default return value when something is not provided vanilla JavaScript, so for reasons of consistency, LightScript will do the same. (See https://github.com/lightscript/lightscript/issues/45 for more detailed examples of how `null` can cause issues.)
 
+## Sequence expressions require `( )` delimeters
+
+### Change:
+
+In ordinary JavaScript (and LightScript 0.5) a comma-separated list of expressions is treated as a sequence expression. Parentheses are optional:
+
+```js
+// Legal JS and LSC 0.5
+a, b
+```
+
+As of `@oigroup/lightscript` 3.0, a sequence expression must now be wrapped in parentheses:
+
+```js
+// Not legal anymore
+a, b
+// Legal!
+(a, b)
+```
+
+This is a **breaking change** to syntax. In particular, users of object comprehensions should note that they need to add parentheses to sequence expressions at the tail of each object comprehension.
+
+### Rationale:
+
+Implicit parentheses around sequence expressions introduce additional ambiguities into the language. With the addition of `bangCall: true` as default, these ambiguities became particularly serious, so it became necessary to require explicit parentheses.
+
 ## Safe traversal expressions
 
 ### Changes:
@@ -67,24 +93,62 @@ This is a **breaking change** to language semantics! Most user code should not b
 
 Here we are converging with the direction that JavaScript proper is headed in, as well as picking up some bug fixes along the way.
 
-## Miscellaneous
+## Bang calls
 
-#### Conditional comprehension syntax change
+#### Bang calls (`{bangCall: true}`) are now enabled by default.
 
-Conditional comprehensions were added in 2.0 (with the `{enhancedComprehension: true}` flag) using the `case` keyword:
+LightScript upstream has indicated they will be accepting this feature, so it is now on by default. `{bangCall: false}` can still be passed to disable it. The flag will be removed altogether when LightScript proper integrates the feature.
+
+## Object-block ambiguity
+
+### Changes
+
+#### 1. `preferObjectLiteral` compiler option has been removed
+
+The approach taken by the `preferObjectLiteral` compiler option introduces a fatal grammar ambiguity into the language. See https://github.com/wcjohnson/lightscript/issues/25 for details. For that reason, it is being removed.
+
+#### 2. `whiteblock` compiler option added.
+
+In lieu of the `preferObjectLiteral` approach, we're introducing a new compiler option, `whiteblock`.
+
+When this option is enabled, only whitespace-delimited syntax can be used for introducing blocks of code. `{ }` are reserved for object literals and some other constructs like `import`/`export`.
+
+For example,
 ```js
-x = [
-  "first"
-  case shouldAddSecond: "second"
-]
+f(x) ->
+  y
+// compiles to
+function(x) { return y; }
+// both with and without `whiteblock`
+
+// However,
+f(x) -> {
+  y
+}
+// compiles to
+function(x) { return y; }
+// without `whiteblock`, but with `whiteblock`, the `{`s are interpreted
+// as delimiting an object, so instead you get
+function(x) {
+  return { y }
+}
 ```
 
-The syntax has been changed to `only if`:
+In the simplest possible terms, `whiteblock` makes the compiler behave as if you are always writing idiomatic whitespaced LightScript code, and so `{}`s will never be used to set off code blocks.
+
+### Rationale
+
+It is easy for new LightScript users to get burned by the distinctions between objects and blocks of code in the LightScript grammar:
 ```js
-x = [
-  "first"
-  only if shouldAddSecond: "second"
-]
+f() -> {}
+g() -> ({})
+
+x = f()
+// x === undefined
+y = g()
+// y === { }
 ```
 
-The `only if` syntax makes it much clearer what this conditional comprehension code is doing.
+That syntax exists to create an easy migration path from a JS codebase to LightScript, where support for braces is helpful. Nonetheless, for those working in pure LightScript, this extra bit of syntax is a hindrance.
+
+The `preferObjectLiteral` option was the first iteration of a system designed to help people who want to write idiomatic LightScript work around this problem; `whiteblock` mode is the next iteration.

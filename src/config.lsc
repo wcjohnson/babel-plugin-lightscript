@@ -19,14 +19,19 @@ export getMetadata() ->
         defaultValue: "default"
         stage: "1"
       }
+      whiteblock: {
+        description: "Disable `{` `}` as block delimiters."
+        valueType: "boolean"
+      }
       bangCall: {
         description: "Call functions with paren-free syntax using `!`"
         valueType: "boolean"
-        stage: "0"
+        defaultValue: true
       }
       safeCall: {
         description: "Call a function using `?` to check callability first"
         valueType: "boolean"
+        defaultValue: true
       }
       existential: {
         description: "Postfix `?` checks that an expression is not loose-equal to `null`"
@@ -57,10 +62,6 @@ export getMetadata() ->
         description: "Don't parse Flow type annotations."
         valueType: "boolean"
       }
-      preferObjectLiteral: {
-        description: "Resolve object-block ambiguity by parsing object literals whenever possible."
-        valueType: "boolean"
-      }
       placeholderArgs: {
         description: "Specify arguments for a function using placeholders in the body."
         valueType: "boolean"
@@ -84,17 +85,17 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
   plugins = parserOpts.plugins
 
   plugins.unshift("lightscript")
-  plugins.push("objectRestSpread", "asyncFunctions", "asyncGenerators", "classProperties", "classConstructorCall", "decorators", "dynamicImport", "doExpressions")
+  plugins.push("objectRestSpread", "asyncFunctions", "asyncGenerators", "classProperties", "classConstructorCall", "decorators", "dynamicImport", "doExpressions", "seqExprRequiresParen")
 
   if not pluginOpts?.disableJsx: plugins.push("jsx")
   if not pluginOpts?.disableFlow: plugins.push("flow")
-  if pluginOpts?.safeCall: plugins.push("safeCallExpression")
+  if pluginOpts?.safeCall != false: plugins.push("safeCallExpression")
   if pluginOpts?.existential: plugins.push("existentialExpression")
-  if pluginOpts?.bangCall: plugins.push("bangCall")
+  if pluginOpts?.bangCall != false: plugins.push("bangCall")
   if not pluginOpts?.noEnforcedSubscriptIndentation: plugins.push("enforceSubscriptIndentation")
   if pluginOpts?.flippedImports: plugins.push("flippedImports")
   if pluginOpts?.enhancedComprehension: plugins.push("enhancedComprehension")
-  if pluginOpts?.preferObjectLiteral: plugins.push("objectBlockAmbiguity_preferObject")
+  if pluginOpts?.whiteblock: plugins.push("whiteblockOnly")
   if pluginOpts?.placeholderArgs: plugins.push("syntacticPlaceholder")
   if pluginOpts?.placeholder:
     parserOpts.placeholder = pluginOpts.placeholder
