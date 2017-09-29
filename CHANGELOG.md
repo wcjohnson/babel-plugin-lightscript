@@ -99,6 +99,55 @@ Here we are converging with the direction that JavaScript proper is headed in, a
 
 LightScript upstream has indicated they will be accepting this feature, so it is now on by default. `{bangCall: false}` can still be passed to disable it. The flag will be removed altogether when LightScript proper integrates the feature.
 
+## Comprehensions
+
+### Change
+
+When `{enhancedComprehension: true}` is enabled, comprehensions have a new syntax:
+
+```js
+x = [
+  // Comprehensions may include regular array elements, which are passed directly
+  // into the produced array
+  1
+  // `...for` introduces a loop comprehension: every iteration of the loop will
+  // produce one value which will be added to the array. Note the addition of the
+  // ellipsis `...` which was not required in the previous syntax.
+  ...for elem e in [2, 3, 4]: e
+  // `...if` introduces a conditional comprehension: if the test expression is
+  // truthy, the consequent expression is inserted into the array. If no alternate
+  // expression is provided, and the test is falsy, nothing is inserted into
+  // the array.
+  //
+  // This behavior differs from a standard `if` expression which would insert an
+  // `undefined` entry into the array in that circumstance.
+  ...if not skipFive: 5
+  // Comprehensions can be mixed in with regular items in any combination.
+  6
+  ...for elem e in [7, 8]: e
+]
+```
+
+Object comprehensions no longer use tuples to represent object elements. Instead, an object expression that is effectively merged into the underlying object is provided:
+
+```js
+reverse(obj) -> ({
+  // Object comprehensions now end with an object literal that will effectively
+  // be `Object.assign`ed to the object being assembled.
+  ...for key k, val v in obj: { [v]: k }
+})
+```
+
+The `case` keyword is no longer used.
+
+### Rationale
+
+The addition of `...` solves the serious grammar ambiguity at https://github.com/wcjohnson/lightscript/issues/25.
+
+`...if` should be more readable and clearer than the `case` syntax it replaced.
+
+Sequence expressions in object comprehensions have always been a bit unfortunate, as the overload violates the semantics of JS sequence expressions. The object expression, though more verbose, is ultimately a clearer syntax that doesn't introduce an edge case into the language.
+
 ## Object-block ambiguity
 
 ### Changes
