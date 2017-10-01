@@ -152,13 +152,75 @@ Sequence expressions in object comprehensions have always been a bit unfortunate
 
 ### Changes
 
-#### 1. `preferObjectLiteral` compiler option has been removed
+#### 1. Context-sensitive parsing of `{ }` delimiters
 
-The approach taken by the `preferObjectLiteral` compiler option introduces a fatal grammar ambiguity into the language. See https://github.com/wcjohnson/lightscript/issues/25 for details. For that reason, it is being removed.
+When the parser encounters `{ }` delimiters, it uses information from context to decide between ambiguous interpretations:
 
-#### 2. `whiteblock` compiler option added.
+- Whenever plain JavaScript syntax is used with `if`, `for`, `do`, `while`, the following `{ }` will be treated as a block of code:
 
-In lieu of the `preferObjectLiteral` approach, we're introducing a new compiler option, `whiteblock`.
+```js
+z = 3
+x = if (true) { z }
+// x === 3
+```
+
+- Whenever LightScript syntax is used with `if`, `for`, `do`, `while`, the following `{ }` will first be treated as an object expression, then as a block of code if it fails to parse as an object:
+
+```js
+z = 3
+x = if true: { z }
+// x deepEquals { z: 3 }
+```
+
+- Whenever `{ }` is encountered elsewhere, it is first treated as an object, then as a block.
+
+```js
+a; { b } = c
+// In lightscript 0.5.9 the `{b}` was treated as a block and this didn't compile:
+Unexpected token (1:7)
+> 1 | a; {b} = c
+    |        ^
+// but now it does:
+a;
+const { b } = c;
+```
+
+```js
+// It is also no longer necessary to set off anonymous code blocks using semicolons.
+{
+  a = b
+}
+// in 0.5.9:
+unknown: Unexpected token (2:4)
+  2 | {
+> 3 |   a = b
+    |     ^
+// in 3.0:
+{
+  const a = b;
+}
+```
+
+### Rationale
+
+It is easy for new LightScript users to get burned by the distinctions between objects and blocks of code in the LightScript grammar:
+```js
+f() -> {}
+g() -> ({})
+
+x = f()
+// x === undefined
+y = g()
+// y === { }
+```
+
+The general intent of these changes is to eliminate these sorts of traps and edge cases. Ideally the output of the compiler should "just makes sense" and it is not necessary to remember the specific rules about how braces are parsed.
+
+(In terms of the parser unit test suite, this change eliminated around 20 situations where LightScript was parsing vanilla JavaScript incorrectly, as well as four parsing situations labeled as `unfortunate` in the test suite itself.)
+
+## `whiteblock` compiler option added.
+
+### Change
 
 When this option is enabled, only whitespace-delimited syntax can be used for introducing blocks of code. `{ }` are reserved for object literals and some other constructs like `import`/`export`.
 
@@ -187,17 +249,4 @@ In the simplest possible terms, `whiteblock` makes the compiler behave as if you
 
 ### Rationale
 
-It is easy for new LightScript users to get burned by the distinctions between objects and blocks of code in the LightScript grammar:
-```js
-f() -> {}
-g() -> ({})
-
-x = f()
-// x === undefined
-y = g()
-// y === { }
-```
-
-That syntax exists to create an easy migration path from a JS codebase to LightScript, where support for braces is helpful. Nonetheless, for those working in pure LightScript, this extra bit of syntax is a hindrance.
-
-The `preferObjectLiteral` option was the first iteration of a system designed to help people who want to write idiomatic LightScript work around this problem; `whiteblock` mode is the next iteration.
+The context-sensitive brace parser is implemented using speculative branching, which can essentially double the amount of work the parser has to do in a lot of situations. This flag will greatly speed up the LightScript parser for those who use whitespace-sensitive syntax, as it is no longer necessary for the parser to speculate when encountering `{ }`.
