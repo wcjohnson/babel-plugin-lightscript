@@ -87,6 +87,12 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
   plugins.unshift("lightscript")
   plugins.push("objectRestSpread", "asyncFunctions", "asyncGenerators", "classProperties", "classConstructorCall", "decorators", "dynamicImport", "doExpressions", "seqExprRequiresParen")
 
+  if pluginOpts?.whiteblock:
+    if pluginOpts.whiteblock != "compat":
+      plugins.push("whiteblockOnly")
+  else:
+    plugins.push("whiteblockPreferred")
+
   if not pluginOpts?.disableJsx: plugins.push("jsx")
   if not pluginOpts?.disableFlow: plugins.push("flow")
   if pluginOpts?.safeCall != false: plugins.push("safeCallExpression")
@@ -95,7 +101,6 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
   if not pluginOpts?.noEnforcedSubscriptIndentation: plugins.push("enforceSubscriptIndentation")
   if pluginOpts?.flippedImports: plugins.push("flippedImports")
   if pluginOpts?.enhancedComprehension: plugins.push("splatComprehension")
-  if pluginOpts?.whiteblock: plugins.push("whiteblockOnly")
   if pluginOpts?.placeholderArgs: plugins.push("syntacticPlaceholder")
   if pluginOpts?.placeholder:
     parserOpts.placeholder = pluginOpts.placeholder
