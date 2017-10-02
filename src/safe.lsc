@@ -3,8 +3,6 @@ import atNode from 'ast-loc-utils/lib/placeAtNode'
 import { hoistRef, isSimple } from './ref'
 import { isa } from './is'
 
-import { getLoc, placeTreeAtLocWhenUnplaced as allAtLoc } from 'ast-loc-utils'
-
 // Optional-replacement algorithm based on babel-plugin-transform-optional-chaining
 // See https://github.com/babel/babel/blob/master/packages/babel-plugin-transform-optional-chaining/src/index.js
 
