@@ -1,8 +1,7 @@
 import t from './types'
 import atNode from 'ast-loc-utils/lib/placeAtNode'
 import { hoistRef } from './ref'
-import is, { isa } from './is'
-import { ensureBlockArrowFunctionExpression } from './functions'
+import is from './is'
 
 import { getLoc, placeTreeAtLocWhenUnplaced as allAtLoc } from 'ast-loc-utils'
 
@@ -54,7 +53,7 @@ export transformSafeMemberExpression(path) ->
   node.type = "MemberExpression"
 
   // Generate null check, hoisting ref if necessary.
-  left = if object.type === "Identifier" or object.type === "SafeMemberExpression":
+  left = if object.type === "Identifier" or object.type === "SafeMemberExpression" or object.type === "ThisExpression":
     object
   else:
     ref = path.scope.generateDeclaredUidIdentifier("ref")~atNode(object)
