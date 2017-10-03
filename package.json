@@ -1,6 +1,6 @@
 {
   "name": "@oigroup/babel-plugin-lightscript-self-host",
-  "version": "3.0.0-pre.0",
+  "version": "3.0.0",
   "description": "Babel plugin for self-hosting the LightScript compiler in LightScript.",
   "main": "lib/index.js",
   "engines": {
@@ -19,7 +19,7 @@
   "homepage": "http://lightscript.org/",
   "license": "MIT",
   "dependencies": {
-    "@oigroup/babylon-lightscript-self-host": "3.0.0-pre.0",
+    "@oigroup/babylon-lightscript-self-host": "3.0.0",
     "@oigroup/lightscript-runtime": "^0.1.1",
     "ast-loc-utils": "^1.1.0",
     "babel-types": "^6.25.0"
