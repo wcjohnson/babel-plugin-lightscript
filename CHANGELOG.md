@@ -96,9 +96,9 @@ x = [
   // Comprehensions may include regular array elements, which are passed directly
   // into the produced array
   1
-  // `...for` introduces a loop comprehension: every iteration of the loop will
-  // produce one value which will be added to the array. Note the addition of the
-  // ellipsis `...` which was not required in the previous syntax.
+  // `...for` introduces a loop comprehension: each time the loop reaches a tail
+  // expression, an item will be inserted into the array. Note the addition of the
+  // ellipsis `...` which was not required in previous syntax.
   ...for elem e in [2, 3, 4]: e
   // `...if` introduces a conditional comprehension: if the test expression is
   // truthy, the consequent expression is inserted into the array. If no alternate
@@ -128,7 +128,7 @@ reverse(obj) -> ({
 })
 ```
 
-#### 3. `{ enhancedComprehension: false }` enables the old syntax.
+#### 3. `{ enhancedComprehension: true }` is now the default.
 
 The new syntax is enabled by default in order to mesh with the new block parsing strategy. For enhanced backward compatibility with 0.5.9, passing `{ enhancedComprehension: false }` disables the new syntax and reverts to the old comprehension syntax.
 
@@ -259,13 +259,3 @@ In the simplest possible terms, `whiteblock` makes the compiler behave as if you
 ### Rationale
 
 The context-sensitive brace parser is implemented using speculative branching, which can essentially double the amount of work the parser has to do in a lot of situations. This flag will greatly speed up the LightScript parser for those who use whitespace-sensitive syntax, as it is no longer necessary for the parser to speculate when encountering `{ }`.
-
-##
-
-### Change
-
-
-
-### Rationale
-
-This change
