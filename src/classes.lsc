@@ -74,7 +74,7 @@ export ensureConstructor(classPath, constructorBodyPath, withSuper = true) ->
 // methods at construction time.
 export bindMethodsInConstructor(classPath, constructorPath, methodIds) ->
   // `this.method = this.method.bind(this);`
-  assignments = [for elem methodId in methodIds:
+  assignments = [...for elem methodId in methodIds:
     t.assertOneOf(methodId, ["Identifier", "Expression"])
     isComputed = !is("Identifier", methodId)
 

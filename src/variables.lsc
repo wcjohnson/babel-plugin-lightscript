@@ -6,7 +6,7 @@ import atLoc from 'ast-loc-utils/lib/placeAtLoc'
 export getShadowingIdentifiers(declarationPath) ->
   if not declarationPath.scope.parent: return []
 
-  [for idx i in declarationPath.node.declarations:
+  [...for idx i in declarationPath.node.declarations:
     for val id in declarationPath.get(`declarations.${i}`).getBindingIdentifiers():
       if declarationPath.scope.parent.hasBinding(id.name): id
   ]

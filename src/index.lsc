@@ -160,7 +160,7 @@ Lightscript(babel) ->
 
       ObjectExpression(path): void ->
         fatArrowKeys = [
-          for elem prop in path.node.properties:
+          ...for elem prop in path.node.properties:
             if prop~isa("Method") and prop.skinny == false:
               prop.skinny = true // prevent recursion
               prop.key

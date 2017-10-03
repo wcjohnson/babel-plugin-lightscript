@@ -33,7 +33,7 @@ HasLength(array, min, max, patternNode) ->
     [
       array
       t.numericLiteral(min)~atNode(patternNode)
-      case max~looseNotEq(null): t.numericLiteral(max)~atNode(patternNode)
+      ...if max~looseNotEq(null): t.numericLiteral(max)~atNode(patternNode)
     ]
   )~atNode(patternNode)
 
@@ -50,7 +50,7 @@ export matchesArrayPattern(array, arrayPattern) ->
 
   And([
     array~HasLength(minLength, maxLength, arrayPattern)
-    for idx i, elem element in elements:
+    ...for idx i, elem element in elements:
       if element and element~isDestructuringPattern():
         array~Bracket(i, element)~matchesDestructuringPattern(element)
   ])
@@ -77,7 +77,7 @@ export matchesObjectPattern(obj, objectPattern) ->
   And([
     // _hasProps(_obj, ...)
     obj~HasProps(objectPattern, [
-      for elem property in properties:
+      ...for elem property in properties:
         if property~isa("ObjectProperty"):
           { key, value } = property
           if (not value~isa("AssignmentPattern") and key~isa("Identifier")):
@@ -87,7 +87,7 @@ export matchesObjectPattern(obj, objectPattern) ->
     // Conditions for nested patterns.
     // Destructuring patterns get a nested match. Defaulted items get a nested match
     // only if a default is not present.
-    for elem property in properties:
+    ...for elem property in properties:
       if property~isa("ObjectProperty"):
         { key, value } = property
         match value:
@@ -111,7 +111,7 @@ maybeToRestructureExpression(node) ->
 
 export toRestructureExpressionForArrayPattern(pattern) ->
   t.arrayExpression(
-    [for elem element in pattern.elements:
+    [...for elem element in pattern.elements:
       match element:
         | ~isa("AssignmentPattern"): element.left~maybeToRestructureExpression()
         | ~isa("RestElement"): t.spreadElement(element.argument)~atNode(element)
@@ -127,7 +127,7 @@ restructureObjAssignment(assign, defaultKey) ->
 
 export toRestructureExpressionForObjectPattern(pattern) ->
   t.objectExpression(
-    [for elem property in pattern.properties:
+    [...for elem property in pattern.properties:
       match property:
         | ~isa("RestProperty"):
           t.spreadProperty(property.argument)~atNode(property)

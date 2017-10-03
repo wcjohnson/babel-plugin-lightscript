@@ -15,7 +15,7 @@ export addImport(imports, importPath, name) ->
 export insertImports(imports, path, useRequire = false) ->
   loc = getCompilerState().firstLoc
 
-  stmts = [for key importPath, val importNames in imports:
+  stmts = [...for key importPath, val importNames in imports:
     for elem name in importNames:
       if useRequire:
         // const [name] = require("[path]")
