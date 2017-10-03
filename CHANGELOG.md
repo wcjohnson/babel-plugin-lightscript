@@ -46,7 +46,7 @@ a, b
 (a, b)
 ```
 
-This is a **breaking change** to syntax. In particular, users of object comprehensions should note that they need to add parentheses to sequence expressions at the tail of each object comprehension.
+This is a **breaking change** to syntax.
 
 ### Rationale:
 
@@ -71,9 +71,13 @@ a == null ? void 0 : (_a = a[b++]) == null ? void 0 : _a.c;
 
 This is a **breaking change** to language semantics! Most user code should not be affected, as it should not rely on this kind of side effect ordering -- but please do note the possible impact here.
 
-#### 2. Syntax and other changes
+#### 2. `{ safeCall: true }` enabled by default
 
-The JS optional chaining proposal is still in rapid flux despite its position at Stage 1 in the standards process. There appears to be considerable uncertainty on the final syntax. For that reason, we are delaying introducing any syntax changes at this time. Also, for the time being, `{safeCall: true}` is still required to enable safe calls.
+The JS proposal appears likely to include safe calls, so they are now on by default. `{ safeCall: false }` can still be passed as a compiler flag to disable them. In the event the JS proposal advances to a late stage with safe calls present, the flag will be removed altogether.
+
+#### 3. Syntax and other changes
+
+The JS optional chaining syntax is still in rapid flux despite its position at Stage 1 in the standards process. There appears to be considerable uncertainty on the final syntax. For that reason, we are delaying introducing any syntax changes at this time.
 
 ### Rationale:
 
