@@ -8,10 +8,10 @@ export createLogicalExpression(operator, ...conditions) ->
     now conditions = conditions[0]
 
   match conditions:
-    | .length == 0:
+    | with []:
       if operator == "&&": t.booleanLiteral(true) else: t.booleanLiteral(false)
-    | .length == 1:
-      conditions[0]
+    | with [oneCondition]:
+      oneCondition
     | else:
       t.logicalExpression(
         operator

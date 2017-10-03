@@ -7,6 +7,8 @@ match x:
     a + b - 2
   | with [ a, ...b ]:
     b.concat(a)
+  | with [...all]:
+    all
   | with [
       [
         b

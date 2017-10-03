@@ -1,0 +1,1 @@
+const x = a ? b ? c : void 0 : void 0;

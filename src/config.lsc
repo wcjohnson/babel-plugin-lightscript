@@ -5,6 +5,7 @@ export getMetadata() ->
   {
     parser
     getParserOpts
+    parseConfigurationDirectives
     name: packageMetadata.name
     version: packageMetadata.version
     options: {
@@ -14,18 +15,23 @@ export getMetadata() ->
       patternMatching: {
         description: "Test and branch using `match` keyword"
         valueType: "option"
-        options: ["enhanced"]
-        defaultValue: "enhanced"
+        options: ["default", "enhanced"]
+        defaultValue: "default"
         stage: "1"
+      }
+      whiteblock: {
+        description: "Disable `{` `}` as block delimiters."
+        valueType: "boolean"
       }
       bangCall: {
         description: "Call functions with paren-free syntax using `!`"
         valueType: "boolean"
-        stage: "0"
+        defaultValue: true
       }
       safeCall: {
         description: "Call a function using `?` to check callability first"
         valueType: "boolean"
+        defaultValue: true
       }
       existential: {
         description: "Postfix `?` checks that an expression is not loose-equal to `null`"
@@ -56,6 +62,18 @@ export getMetadata() ->
         description: "Don't parse Flow type annotations."
         valueType: "boolean"
       }
+      placeholderArgs: {
+        description: "Specify arguments for a function using placeholders in the body."
+        valueType: "boolean"
+      }
+      placeholder: {
+        description: "Specify an identifier to be transformed into PlaceholderExpression."
+        valueType: "string"
+      }
+      pipeCall: {
+        description: "a |> b infix binary operator invokes b(a)"
+        valueType: "boolean"
+      }
     }
   }
 
@@ -67,16 +85,31 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
   plugins = parserOpts.plugins
 
   plugins.unshift("lightscript")
-  plugins.push("objectRestSpread", "asyncFunctions", "asyncGenerators", "classProperties", "classConstructorCall", "decorators", "dynamicImport", "doExpressions")
+  plugins.push(
+    "objectRestSpread", "asyncFunctions", "asyncGenerators"
+    "classProperties", "classConstructorCall", "decorators"
+    "dynamicImport", "doExpressions", "seqExprRequiresParen"
+    "noLabeledExpressionStatements"
+  )
+
+  if pluginOpts?.whiteblock:
+    if pluginOpts.whiteblock != "compat":
+      plugins.push("whiteblockOnly")
+  else:
+    plugins.push("whiteblockPreferred")
 
   if not pluginOpts?.disableJsx: plugins.push("jsx")
   if not pluginOpts?.disableFlow: plugins.push("flow")
-  if pluginOpts?.safeCall: plugins.push("safeCallExpression")
+  if pluginOpts?.safeCall != false: plugins.push("safeCallExpression")
   if pluginOpts?.existential: plugins.push("existentialExpression")
-  if pluginOpts?.bangCall: plugins.push("bangCall")
+  if pluginOpts?.bangCall != false: plugins.push("bangCall")
   if not pluginOpts?.noEnforcedSubscriptIndentation: plugins.push("enforceSubscriptIndentation")
   if pluginOpts?.flippedImports: plugins.push("flippedImports")
-  if pluginOpts?.enhancedComprehension: plugins.push("enhancedComprehension")
+  if pluginOpts?.enhancedComprehension != false: plugins.push("splatComprehension")
+  if pluginOpts?.placeholderArgs: plugins.push("syntacticPlaceholder")
+  if pluginOpts?.placeholder:
+    parserOpts.placeholder = pluginOpts.placeholder
+  if pluginOpts?.pipeCall: plugins.push("pipeCall")
 
   // TODO: watch upstream on pattern matching; default to their syntax when complete
   // patternMatchingVersion = pluginOpts?.patternMatching or "v4"
@@ -105,3 +138,66 @@ export locatePluginOpts(opts, thisPlugin) ->
       if isMe(plugin, thisPlugin): return {}
 
   {}
+
+eatFluff(code) ->
+  now code = code.trim()
+  matches = code.match(/^(?:\/\/[^\r\n]*\r?\n?\s*)+([^]*)$/)
+  if matches: matches[1] else:
+    lcMatches = code.match(/^(?:\/\*[^]*?\*\/\s*)+([^]*)$/)
+    if lcMatches: lcMatches[1] else: code
+
+eatDirective(code, directives) ->
+  now code = code.trim()
+  matches = code.match(/^'((?:[^'\\]|\\.)*)'\s*;?\s*([^]*)$/)
+  if matches:
+    directives.push(matches[1])
+    matches[2]
+  else:
+    dqMatches = code.match(/^"((?:[^"\\]|\\.)*)"\s*;?\s*([^]*)$/)
+    if dqMatches:
+      directives.push(dqMatches[1])
+      dqMatches[2]
+    else:
+      code
+
+// XXX: This is somewhat hackish. We can probably get Babylon to just parse the
+// directives off the Program block as a plugin or something.
+getDirectives(code) ->
+  directives = []
+  let before = code, after
+  // eslint-disable-next-line no-constant-condition
+  while true:
+    now after = eatDirective(eatFluff(before), directives)
+    if after == before: break
+    now before = after
+  directives
+
+getClauseOptions(opts, clause) ->
+  now clause = clause.split(':')
+  if clause.length == 2:
+    opt = clause[0].trim()
+    val = clause[1].trim()
+    if opt.length and val.length:
+      try:
+        opts[opt] = JSON.parse(val)
+      catch err:
+        return
+  elif clause.length == 1:
+    opt = clause[0].trim()
+    if opt.length: opts[opt] = true
+
+getWithOptions(opts, wc) ->
+  clauses = wc.split(',')
+  for elem clause in clauses:
+    getClauseOptions(opts, clause)
+
+export parseConfigurationDirectives(code) ->
+  result = {}
+  directives = getDirectives(code)
+  for elem directive in directives:
+    matches = directive.match(/^use \@oigroup\/lightscript\s*(?:with ([^]*))?$/)
+    if matches:
+      result.isLightScript = true
+      if matches[1]: getWithOptions(result, matches[1])
+
+  result

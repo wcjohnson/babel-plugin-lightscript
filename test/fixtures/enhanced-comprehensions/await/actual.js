@@ -1,4 +1,4 @@
 f() -/>
-  <- [for now x of arr:
+  <- [...for now x of arr:
     <- x
   ]

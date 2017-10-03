@@ -7,11 +7,13 @@ import placeAtLoc from 'ast-loc-utils/lib/placeAtLoc'
 import span from 'ast-loc-utils/lib/span'
 
 export isSimple(refTarget) ->
-  refTarget~isa("Identifier") or refTarget~isa("ThisExpression")
+  refTarget~isa("Identifier") or
+  refTarget~isa("Super") or
+  refTarget~isa("ThisExpression")
 
 // Hoist a ref up to the enclosing scope if needed.
 export hoistRef(path, refTarget, varName = "ref") ->
-  if isSimple(refTarget):
+  if refTarget~isSimple():
     { ref: refTarget, assign: refTarget, isComplex: false }
   else:
     ref = path.scope.generateDeclaredUidIdentifier(varName)
@@ -26,7 +28,7 @@ export hoistRef(path, refTarget, varName = "ref") ->
 // Create a variable declarator for a ref in the enclosing scope, if
 // needed
 export undeclaredRef(path, refTarget, varName = "ref") ->
-  if isSimple(refTarget):
+  if refTarget~isSimple():
     { ref: refTarget, declarator: null, isComplex: false }
   else:
     ref = path.scope.generateUidIdentifier(varName)

@@ -1,7 +1,5 @@
-const x = true ? (1, 1) : true ? function () {
-  var _ret;
-
+const x = true ? (1, 1) : true ? (() => {
   for (const x of []) {
-    _ret = x;
-  }return _ret;
-}() : true ? 3 : (4, 4);
+    x;
+  }
+})() : true ? 3 : (4, 4);

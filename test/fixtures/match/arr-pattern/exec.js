@@ -11,6 +11,26 @@ assert.equal(
     | with [first]: "nonempty"
 )
 assert.equal(
+  "any",
+  match [1, 2, 3]:
+    | with [...any]: "any"
+)
+assert.equal(
+  "any",
+  match []:
+    | with [...any]: "any"
+)
+assert.equal(
+  undefined,
+  match 1:
+    | with [...any]: "any"
+)
+assert.equal(
+  "ja",
+  match "javascript is fun":
+    | with [a, b, ...any]: a + b
+)
+assert.equal(
   undefined,
   match []:
     | with [a]:

@@ -1,3 +1,3 @@
 function f() {
-  return x ? y : null;
+  return x ? y : void 0;
 }

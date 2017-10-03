@@ -1,5 +1,5 @@
 const o = {
   async f() {
-    return await this;
+    return this;
   } };
 o.f = o.f.bind(o);

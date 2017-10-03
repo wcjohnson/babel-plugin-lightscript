@@ -1,9 +1,91 @@
 import t from './types'
 import atNode from 'ast-loc-utils/lib/placeAtNode'
-import { hoistRef } from './ref'
-import is from './is'
+import { hoistRef, isSimple } from './ref'
+import { isa } from './is'
 
-import { getLoc, placeTreeAtLocWhenUnplaced as allAtLoc } from 'ast-loc-utils'
+// Optional-replacement algorithm based on babel-plugin-transform-optional-chaining
+// See https://github.com/babel/babel/blob/master/packages/babel-plugin-transform-optional-chaining/src/index.js
+
+findReplacementPath(path) ->
+  path.find(path ->
+    { key, parentPath } = path
+    if key == "left" and parentPath~isa("AssignmentExpression"): false
+    elif key == "object" and parentPath~isa("MemberExpression"): false
+    elif key == "callee" and (parentPath~isa("CallExpression") or parentPath~isa("NewExpression")): false
+    elif key == 0 and path.listKey == "arguments" and path.parent.tilde: false // lift past tilde calls
+    elif key == "argument" and parentPath~isa("UpdateExpression"): false
+    elif key == "argument" and (parentPath~isa("UnaryExpression") and parentPath.node.operator == "delete"): false
+    else: true
+  )
+
+replaceOptionals(path, replacementPath): void ->
+  { scope } = path
+  optionals = []
+  nil = scope.buildUndefinedNode()
+
+  // Collect all optional nodes within the local cluster of nodes
+  let objectPath = path
+  while objectPath~isa("MemberExpression") or objectPath~isa("CallExpression") or objectPath~isa("NewExpression"):
+    { node } = objectPath;
+    if node.optional: optionals.push(node)
+
+    if objectPath~isa("MemberExpression"):
+      now objectPath = objectPath.get("object")
+    else:
+      now objectPath = objectPath.get("callee")
+
+  // Traverse optionals from innermost to outermost
+  for let i = optionals.length - 1; i >= 0; i--:
+    node = optionals[i]
+    node.optional = false
+
+    isCall = node~isa("CallExpression");
+    replaceKey = if isCall or node~isa("NewExpression"): "callee" else: "object"
+    chain = node[replaceKey]
+
+    // Memoize the expression we're chaining from.
+    // XXX: non-idiomatic usage of let/now here is due to https://github.com/lightscript/lightscript/issues/47
+    // XXX: This was fixed sometime in 2.0 branch but self hosting compiler has not caught up yet.
+    // XXX: remember to cleanup when we bring self-hosting forward
+    let check
+    if isCall && chain~isa("MemberExpression"):
+      { ref: objectRef, assign: objectAssign } = hoistRef(path, chain.object, "obj")
+      { ref: propertyRef, assign: propertyAssign } = if chain.computed:
+        hoistRef(path, chain.property, "prop")
+      else:
+        { ref: chain.property, assign: chain.property}
+      chain.object = objectRef
+      chain.property = propertyRef
+      now check = t.memberExpression(objectAssign, propertyAssign, chain.computed)
+      // NOTE: The babel transform sometimes generates `Function#call` here which may be more
+      // semantically correct.
+    else:
+      ref = if not chain~isSimple(): scope.maybeGenerateMemoised(chain)
+      now check = if ref:
+        node[replaceKey] = ref
+        t.assignmentExpression("=", ref, chain)
+      else:
+        chain
+
+    replacementPath.replaceWith(
+      t.conditionalExpression(
+        if isCall:
+          t.binaryExpression("!==",
+            t.unaryExpression("typeof", check),
+            t.stringLiteral("function")
+          )
+        else:
+          t.binaryExpression("==", check, t.nullLiteral())
+        nil
+        replacementPath.node
+      )
+    )
+
+    now replacementPath = replacementPath.get("alternate")
+
+export maybeTransformSafe(path): void ->
+  if path.node.optional:
+    replaceOptionals(path, path~findReplacementPath())
 
 export transformExistentialExpression(path) ->
   path.replaceWith(
@@ -13,73 +95,3 @@ export transformExistentialExpression(path) ->
       t.nullLiteral()~atNode(path.node)
     )~atNode(path.node)
   )
-
-export replaceWithSafeCall(path, callExpr) ->
-  let callee, typeofExpr
-
-  if is("MemberExpression", callExpr.callee):
-    memberExpr = callExpr.callee
-    { ref: objectRef, assign: object } = hoistRef(path, memberExpr.object, "obj")
-
-    let property = memberExpr.property, propertyRef = memberExpr.property
-    if memberExpr.computed:
-      now { ref: propertyRef, assign: property } = hoistRef(path, memberExpr.property, "prop")
-
-    now typeofExpr = t.memberExpression(object, property, memberExpr.computed)
-    now callee = t.memberExpression(objectRef, propertyRef, memberExpr.computed)
-  else:
-    now { ref: callee, assign: typeofExpr } = hoistRef(path, callExpr.callee)
-
-  // Generate actual safecall expr
-  // f?(x) -> (typeof f === "function") ? f(x) : null
-  path.replaceWith(
-    t.conditionalExpression(
-      t.binaryExpression("===",
-        t.unaryExpression("typeof", typeofExpr),
-        t.stringLiteral("function")
-      ),
-      t.callExpression(callee, callExpr.arguments),
-      t.nullLiteral()
-    )~allAtLoc(getLoc(path.node))
-  )
-
-export transformSafeMemberExpression(path) ->
-  // x?.y -> x == null ? x : x.y
-  // x?[y] -> x == null ? x : x[y]
-  { node } = path;
-  { object } = node;
-
-  left = if object.type === "Identifier" or object.type === "SafeMemberExpression":
-    object
-  else:
-    ref = path.scope.generateDeclaredUidIdentifier("ref")~atNode(object)
-    node.object = ref
-    t.assignmentExpression("=", ref, object)~atNode(object)
-
-  nullCheck = t.binaryExpression("==", left, t.nullLiteral()~atNode(object))~atNode(object)
-  node.type = "MemberExpression"
-  path.replaceWith(node)
-
-  // Gather trailing subscripts/calls, which are parent nodes:
-  // eg; in `o?.x.y()`, group trailing `.x.y()` into the ternary
-  let tail = path
-  while tail.parentPath:
-    parent = tail.parentPath;
-    hasChainedParent = (
-      parent.isMemberExpression() ||
-      (parent.isCallExpression() && parent.get("callee") === tail) ||
-      (parent.node.type === "TildeCallExpression" && parent.get("left") === tail)
-    )
-
-    if hasChainedParent:
-      now tail = tail.parentPath
-    else:
-      break
-
-  ternary = t.conditionalExpression(
-    nullCheck
-    t.nullLiteral()~atNode(tail.node)
-    tail.node
-  )~atNode(tail.node)
-
-  tail.replaceWith(ternary);

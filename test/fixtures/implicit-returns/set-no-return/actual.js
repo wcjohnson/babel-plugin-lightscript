@@ -1,4 +1,4 @@
 class X {
-  y(z) -set>
+  set y(z) ->
     this.z = z
 }

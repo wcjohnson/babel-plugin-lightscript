@@ -1,3 +1,3 @@
 class A {
-  f() -get> 1
+  get f() -> 1
 }

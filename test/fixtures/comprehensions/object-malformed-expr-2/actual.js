@@ -1,1 +1,1 @@
-{for elem x in arr: a, b, c}
+{for elem x in arr: (a, b, c)}

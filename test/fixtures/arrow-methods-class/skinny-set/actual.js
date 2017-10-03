@@ -1,4 +1,4 @@
 class A {
-  f(x) -set>
+  set f(x) ->
     this.x = x
 }

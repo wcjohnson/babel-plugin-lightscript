@@ -1,6 +1,17 @@
 {
   "plugins": [
-    "@oigroup/babel-plugin-lightscript",
+    [
+      "@oigroup/babel-plugin-lightscript",
+      {
+        "existential": true,
+        "safeCall": true,
+        "bangCall": true,
+        "enhancedComprehension": true,
+        "noEnforcedSubscriptIndentation": true,
+        "flippedImports": true,
+        "disableJsx": true
+      }
+    ],
     "add-module-exports",
     "transform-flow-strip-types"
   ],
