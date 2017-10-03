@@ -73,7 +73,7 @@ This is a **breaking change** to language semantics! Most user code should not b
 
 #### 2. Syntax and other changes
 
-The JS optional chaining proposal is still in rapid flux despite its position at Stage 1 in the standards process. There is considerable uncertainty on the final syntax. For that reason, we are delaying introducing any syntax changes at this time. Also, for the time being, `{safeCall: true}` is still required to enable safe calls.
+The JS optional chaining proposal is still in rapid flux despite its position at Stage 1 in the standards process. There appears to be considerable uncertainty on the final syntax. For that reason, we are delaying introducing any syntax changes at this time. Also, for the time being, `{safeCall: true}` is still required to enable safe calls.
 
 ### Rationale:
 
@@ -87,9 +87,9 @@ LightScript upstream has indicated they will be accepting this feature, so it is
 
 ## Comprehensions
 
-### Change
+### Changes
 
-When `{enhancedComprehension: true}` is enabled, comprehensions have a new syntax:
+#### 1. Comprehensions have a new syntax:
 
 ```js
 x = [
@@ -114,7 +114,11 @@ x = [
 ]
 ```
 
-Object comprehensions no longer use tuples to represent object elements. Instead, an object expression that is effectively merged into the underlying object is provided:
+The `case` keyword is no longer used.
+
+#### 2. Object comprehensions no longer use tuples to represent object elements.
+
+Instead, an object expression that is effectively merged into the underlying object is provided:
 
 ```js
 reverse(obj) -> ({
@@ -124,7 +128,11 @@ reverse(obj) -> ({
 })
 ```
 
-The `case` keyword is no longer used.
+#### 3. `{ enhancedComprehension: false }` enables the old syntax.
+
+The new syntax is enabled by default in order to mesh with the new block parsing strategy. For enhanced backward compatibility with 0.5.9, passing `{ enhancedComprehension: false }` disables the new syntax and reverts to the old comprehension syntax.
+
+This flag will be removed completely once LightScript upstream adopts the syntax.
 
 ### Rationale
 
@@ -187,6 +195,19 @@ unknown: Unexpected token (2:4)
 }
 ```
 
+#### 2. Labeled expressions are illegal
+
+Applying a label to an expression will now result in an error:
+```js
+{
+  thisIsABlock()
+  label: expr
+}
+```
+```js
+Labeled expressions are illegal. (3:2)
+```
+
 ### Rationale
 
 It is easy for new LightScript users to get burned by the distinctions between objects and blocks of code in the LightScript grammar:
@@ -201,6 +222,8 @@ y = g()
 ```
 
 The general intent of these changes is to eliminate these sorts of traps and edge cases. Ideally the output of the compiler should "just makes sense" and it is not necessary to remember the specific rules about how braces are parsed.
+
+Labeled expressions increase the number of scenarios where objects and blocks can be confused with each other, and don't make much sense on their own, so they have been outlawed.
 
 (In terms of the parser unit test suite, this change eliminated around 20 situations where LightScript was parsing vanilla JavaScript incorrectly, as well as four parsing situations labeled as `unfortunate` in the test suite itself.)
 
@@ -236,3 +259,13 @@ In the simplest possible terms, `whiteblock` makes the compiler behave as if you
 ### Rationale
 
 The context-sensitive brace parser is implemented using speculative branching, which can essentially double the amount of work the parser has to do in a lot of situations. This flag will greatly speed up the LightScript parser for those who use whitespace-sensitive syntax, as it is no longer necessary for the parser to speculate when encountering `{ }`.
+
+##
+
+### Change
+
+
+
+### Rationale
+
+This change

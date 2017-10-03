@@ -80,13 +80,13 @@ Lightscript(babel) ->
           transformForInObjectStatement(path);
 
       ArrayComprehension(path): void ->
-        if opts.enhancedComprehension:
+        if opts.enhancedComprehension != false:
           comprehension.transformArrayComprehension(path)
         else:
           comprehension.transformPlainArrayComprehension(path)
 
       ObjectComprehension(path): void ->
-        if opts.enhancedComprehension:
+        if opts.enhancedComprehension != false:
           comprehension.transformObjectComprehension(path)
         else:
           comprehension.transformPlainObjectComprehension(path)
