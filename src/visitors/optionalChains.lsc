@@ -1,6 +1,6 @@
 import { maybeTransformSafe } from '../transforms/safe'
 
-export transformSafeExprs(programPath) ->
+export default visitOptionalChains(compiler, programPath): void ->
   programPath.traverse({
     CallExpression(path): void -> path~maybeTransformSafe()
     MemberExpression(path): void -> path~maybeTransformSafe()

@@ -1,10 +1,10 @@
-import * as parser from "@oigroup/babylon-lightscript";
+import * as babylonLightScript from "@oigroup/babylon-lightscript";
 import packageMetadata from "../package.json";
 import parseConfigurationDirectives from './util/parseConfigurationDirectives'
 
 export getMetadata() ->
   {
-    parser
+    parser: babylonLightScript
     getParserOpts
     parseConfigurationDirectives
     name: packageMetadata.name
@@ -80,7 +80,7 @@ export getMetadata() ->
 
 export getParserOpts(pluginOpts, initialParserOpts) ->
   parserOpts = initialParserOpts or {}
-  parserOpts.parser = parser.parse
+  parserOpts.parser = babylonLightScript.parse
 
   parserOpts.plugins = parserOpts.plugins or []
   plugins = parserOpts.plugins
@@ -119,6 +119,13 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
   plugins.push("match")
 
   parserOpts
+
+export preParseInitialization(compiler, babelFile, pluginOpts) ->
+  babelFile.parseShebang()
+  { opts, parserOpts, code } = babelFile
+  directiveOpts = parseConfigurationDirectives(code)
+
+
 
 // XXX: shouldn't be needed, refactor
 export { parseConfigurationDirectives }

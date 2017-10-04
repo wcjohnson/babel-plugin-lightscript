@@ -64,7 +64,7 @@ findFunctionsWithPlaceholders(programPath) ->
   })
   fns
 
-export transformPlaceholders(programPath) ->
+export transformAllPlaceholders(programPath) ->
   fns = programPath~findFunctionsWithPlaceholders()
   fns.forEach( fnInfo ->
     fnInfo.functionPath~liftPlaceholders(fnInfo.placeholders)

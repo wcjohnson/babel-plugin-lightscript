@@ -4,7 +4,7 @@ import { isNamedArrowFunction, ensureBlockArrowFunctionExpression } from '../hel
 import { toBlockStatement } from '../helpers/blocks'
 import { isa } from '../types'
 
-export fixAst(programPath) ->
+export default visitAstFixup(compiler, programPath) ->
   programPath.traverse({
     Method(path): void ->
       { node } = path

@@ -1,326 +1,105 @@
-import { is, isa } from "./types"
-
-import { placeAtNode as atNode, placeTreeAtLocWhenUnplaced as allAtLoc, getLoc, placeAtLoc as atLoc, getSurroundingLoc } from 'ast-loc-utils'
-
 import patch from './util/babelTypesPatch'
 import { registerLightscriptNodeTypes } from './lscNodeTypes'
 
-import {
-  addImplicitReturns, replaceWithPlainFunction, replaceWithArrowFunction,
-  replaceWithBoundFunction
-} from "./helpers/functions";
-import { blockToExpression, iife } from "./helpers/blocks";
-import { getShadowingIdentifiers, checkFalsePositiveReference } from "./helpers/variables";
-
-import { ensureConstructor, bindMethodsInConstructor, bindMethods } from "./transforms/classes";
-import * as matching from "./transforms/match";
-import * as comprehension from "./transforms/comprehension";
-import { transformExistentialExpression } from "./transforms/safe";
-import { maybeReplaceWithInlinedOperator } from "./transforms/inlinedOperators";
-import { transformForInArrayStatement, transformForInObjectStatement, lintForInArrayStatement, lintForInObjectStatement } from "./transforms/for";
 import { resetHelpers } from "./state/helpers"; // XXX: should be part of state init
-import { markIdentifier } from "./state/stdlib";
 import { getParserOpts, parseConfigurationDirectives } from './config'
 import findBabelOptionsForPlugin from './util/findBabelOptionsForPlugin'
 import { getFileTypeInfo, createCompilerState, initializeCompilerState, postprocess } from './state/compilerState'
-import { transformPipeOperator } from './transforms/pipe'
 
-import { fixAst } from './visitors/fixAst'
-import { transformPlaceholders } from './visitors/transformPlaceholders'
-import { transformSafeExprs } from './visitors/transformSafeExprs'
+import visitAstFixup from './visitors/fixAst'
+import visitPlaceholders from './visitors/placeholders'
+import visitOptionalChains from './visitors/optionalChains'
+import visitMain from './visitors/main'
 
-Lightscript(babel) ->
+// TODO: factor out to config.lsc
+computeParserOpts(file, pluginOpts) ->
+  // By this time, we have access to the code of the file.
+  // We can parse shebang, directives, etc and manipulate parser options
+  // based on those data.
+  file.parseShebang()
+  { opts, parserOpts } = file
+  fileTypeInfo = getFileTypeInfo(file)
+  cdOpts = parseConfigurationDirectives(file.code)
+
+  // Don't read as LSC
+  if (not fileTypeInfo.isLightScript) and (not cdOpts.isLightScript): return
+
+  file.isLightScript = true
+  Object.assign(pluginOpts, cdOpts)
+
+  // Get LSC parser opts
+  opts.parserOpts = opts.parserOpts or {}
+  nextParserOpts = getParserOpts(pluginOpts, opts.parserOpts)
+  parserOpts.parse = nextParserOpts.parse
+  parserOpts.plugins = nextParserOpts.plugins
+
+export default LightScript(babel) ->
   { types: t } = babel
   patch(t)
   registerLightscriptNodeTypes(t)
 
-  // traverse as top-level item so as to run before other babel plugins
-  // (and avoid traversing any of their output)
-  function Program(path, state): void {
-    opts = state.opts
-    compilerState = createCompilerState({
-      programPath: path
-      babel
-      opts
-      file: state.file
-    })
-
-    if (!compilerState.isLightScript) return
-
-    initializeCompilerState()
-
-    // TODO: helpers -> compilerState
-    resetHelpers(path)
-
-    //// AST transforms
-    // Perform basic ast fixups (block bodies, etc)
-    fixAst(path)
-    // Transform placeholder expressions first.
-    if compilerState.opts.placeholderArgs:
-      transformPlaceholders(path)
-    // Transform safe exprs
-    transformSafeExprs(path)
-
-    // Main LSC transforms
-    path.traverse({
-      PipeCallExpression(path): void ->
-        transformPipeOperator(path)
-
-      ForInArrayStatement(path): void ->
-        // TODO: push the linter conditional down into the transform
-        // and get linter status from compilerState
-        if opts.__linter:
-          lintForInArrayStatement(path)
-        else:
-          transformForInArrayStatement(path)
-
-      ForInObjectStatement(path): void ->
-        // TODO: push the linter conditional down into the transform
-        // and get linter status from compilerState
-        if opts.__linter:
-          lintForInObjectStatement(path)
-        else:
-          transformForInObjectStatement(path);
-
-      ArrayComprehension(path): void ->
-        if opts.enhancedComprehension != false:
-          comprehension.transformArrayComprehension(path)
-        else:
-          comprehension.transformPlainArrayComprehension(path)
-
-      ObjectComprehension(path): void ->
-        if opts.enhancedComprehension != false:
-          comprehension.transformObjectComprehension(path)
-        else:
-          comprehension.transformPlainObjectComprehension(path)
-
-      CallExpression(path): void ->
-        { node } = path
-        maybeReplaceWithInlinedOperator(path, node.callee, node.arguments)
-
-      NamedArrowFunction(path): void ->
-        if (path.node.skinny):
-          replaceWithPlainFunction(path)
-        elif (path.node.generator):
-          // there are no arrow-generators in ES6, so can't compile to arrow
-          replaceWithBoundFunction(path)
-        else:
-          replaceWithArrowFunction(path)
-
-      NamedArrowMemberExpression(path): void ->
-        let object = path.node.object
-        let node = path.node
-        delete node.object
-        node.type = "NamedArrowExpression"
-
-        if (!node.skinny) {
-          node.skinny = true;  // binding here, don't turn into arrow
-          now node = t.callExpression(
-            t.memberExpression(node, t.identifier("bind")),
-            [object]
-          )~allAtLoc(getLoc(object))
-        }
-
-        path.replaceWith(t.assignmentExpression("=",
-          t.memberExpression(object, path.node.id)~atLoc(getSurroundingLoc([object, path.node.id]))
-          node
-        )~atNode(node))
-
-      ArrowFunctionExpression(path): void ->
-        if (path.node.skinny):
-          replaceWithPlainFunction(path)
-        elif (path.node.generator):
-          replaceWithBoundFunction(path)
-
-      ClassBody(path): void ->
-        let fatArrows = [], fatStaticArrows = [], constructorPath;
-        path.node.body.forEach((method, i) => {
-          if (!t.isMethod(method)) return;
-
-          if (method.kind === "constructor") {
-            now constructorPath = path.get(`body.${i}.body`);
-          } else if (method.static && method.skinny === false) {
-            fatStaticArrows.push(method.key);
-            method.skinny = true; // prevent infinite recursion
-          } else if (method.skinny === false) {
-            fatArrows.push(method.key);
-            method.skinny = true; // prevent infinite recursion
-          }
-        });
-
-        let maybeAddSuper = path.parentPath.node.superClass && constructorPath;
-        if (fatArrows.length || maybeAddSuper) {
-          now constructorPath = ensureConstructor(path.parentPath, constructorPath, true);
-        }
-
-        if (fatArrows.length) {
-          bindMethodsInConstructor(path.parentPath, constructorPath, fatArrows);
-        }
-
-        if (fatStaticArrows.length) {
-          bindMethods(path.parentPath, fatStaticArrows);
-        }
-
-      ObjectExpression(path): void ->
-        fatArrowKeys = [
-          ...for elem prop in path.node.properties:
-            if prop~isa("Method") and prop.skinny == false:
-              prop.skinny = true // prevent recursion
-              prop.key
-        ]
-
-        if fatArrowKeys.length: bindMethods(path, fatArrowKeys)
-
-      Function: {
-        exit(path): void ->
-          addImplicitReturns(path)
-
-          if path.node.type === "FunctionDeclaration":
-            // This is needed because named arrow declarations are new in
-            // Lightscript and therefore not acknowledged by Babel's default
-            // traversal algorithm for assessing declarations. We must
-            // register the declaration by hand here.
-            path.getFunctionParent().scope.registerDeclaration(path)
-      }
-
-      IfExpression(path): void ->
-        // TODO: better source mapping here -- place implicit null at end of consequent?
-        consequent = blockToExpression(path.get("consequent"));
-        undef = path.scope.buildUndefinedNode();
-
-        alternate = if path.node.alternate:
-          blockToExpression(path.get("alternate"));
-        else:
-          undef~atNode(path.node)
-
-        path.replaceWith(t.conditionalExpression(path.node.test, consequent, alternate)~atNode(path.node));
-
-      AssignmentExpression(path): void ->
-        if (path.node.operator === "<-" || path.node.operator === "<!-"):
-          path.node.operator = "="
-
-        if is("MemberExpression", path.node.left): return
-
-        if path.node.isNowAssign === false:
-          throw path.buildCodeFrameError(
-            "Incorrect assignment: to reassign, use `now`; to assign as `const`, put on its own line."
-          )
-
-      SafeAwaitExpression(path): void ->
-        const errId = path.scope.generateUidIdentifier("err");
-        awaitIife = iife(
-          t.tryStatement(
-            t.blockStatement([
-              t.returnStatement(t.awaitExpression(path.node.argument))
-            ]),
-            t.catchClause(errId, t.blockStatement([
-              t.returnStatement(errId)
-            ]))
-          )~allAtLoc(getLoc(path.node))
-          true
-        )
-
-        // TODO: returntype annotation
-        awaitExpr = t.awaitExpression(awaitIife)~allAtLoc(getLoc(path.node))
-        path.replaceWith(awaitExpr)
-
-      AwaitExpression(path): void ->
-        if (path.get("argument").isArrayExpression() || path.node.argument.type === "ArrayComprehension") {
-          const promiseDotAllCall = t.callExpression(
-            t.memberExpression(t.identifier("Promise"), t.identifier("all")),
-            [path.node.argument],
-          );
-          path.get("argument").replaceWith(promiseDotAllCall);
-        }
-
-      VariableDeclaration(path): void ->
-        // Error on auto-const when shadowing variable
-        if (path.node.kind === "const") {
-          if (path.node.extra && path.node.extra.implicit === true) {
-            const id = getShadowingIdentifiers(path)[0];
-            if (id) {
-              throw path.buildCodeFrameError(
-                `\`${id.name}\` is shadowed from a higher scope. ` +
-                `If you want to reassign the variable, use \`now ${id.name} = ...\`. ` +
-                "If you want to declare a new shadowed \`const\` variable, " +
-                `you must use \`const ${id.name} = ...\` explicitly.`
-              );
-            }
-          }
-        }
-
-      // collect functions to be imported for the stdlib
-      ReferencedIdentifier(path): void ->
-        if not checkFalsePositiveReference(path):
-          compilerState.stdlib~markIdentifier(path)
-
-      ExistentialExpression(path): void ->
-        transformExistentialExpression(path)
-
-      MatchExpression(path): void ->
-        matching.transformMatchExpression(path, opts.__linter)
-
-      MatchStatement(path): void ->
-        matching.transformMatchStatement(path, opts.__linter)
-    })
-
-    compilerState~postprocess()
-  } // Program()
-
-  visitor = {
-    Program
-  }
-
-  // TODO: factor out to config.lsc
-  computeParserOpts(file) ->
-    // By this time, we have access to the code of the file.
-    // We can parse shebang, directives, etc and manipulate parser options
-    // based on those data.
-    file.parseShebang()
-    { opts, parserOpts } = file
-    fileTypeInfo = getFileTypeInfo(file)
-    pluginOpts = findBabelOptionsForPlugin(opts, plugin) // XXX: see comments below
-    cdOpts = parseConfigurationDirectives(file.code)
-
-    // Don't read as LSC
-    if (not fileTypeInfo.isLightScript) and (not cdOpts.isLightScript): return
-
-    file.isLightScript = true
-    Object.assign(pluginOpts, cdOpts)
-
-    // Get LSC parser opts
-    opts.parserOpts = opts.parserOpts or {}
-    nextParserOpts = getParserOpts(pluginOpts, opts.parserOpts)
-    parserOpts.parse = nextParserOpts.parse
-    parserOpts.plugins = nextParserOpts.plugins
-
   plugin = {
     manipulateOptions(opts, parserOpts, file) ->
-      // This entire thing is a workaround for what is IMO a babel design flaw.
-      // Relevant Babel code:
-      // https://github.com/babel/babel/blob/4e50b2d9d9c376cee7a2cbf56553fe5b982ea53c/packages/babel-core/src/transformation/file/index.js#L63
-      // https://github.com/babel/babel/blob/4e50b2d9d9c376cee7a2cbf56553fe5b982ea53c/packages/babel-core/src/transformation/file/index.js#L483
-      //
       // manipulateOptions is called very early in the Babel processing chain.
       // It doesn't get an opportunity to see the configuration options for the
-      // plugin being run (without a workaround above) nor does it get an
+      // plugin being run (without a workaround) nor does it get an
       // opportunity to see the code that will be compiled.
       //
       // This rules out things like parsing configuration directives from the
       // top of a JS file to manipulate parsing and compiling options.
       //
-      // This monkey patch defers the option manipulation until after the file
-      // has been read, but before actual parsing.
+      // To remedy this, we monkey patch so that we can do initialization work
+      // after the code is read, but before the parser runs.
+      //
+      // Relevant Babel code:
+      // https://github.com/babel/babel/blob/4e50b2d9d9c376cee7a2cbf56553fe5b982ea53c/packages/babel-core/src/transformation/file/index.js#L63
+      // https://github.com/babel/babel/blob/4e50b2d9d9c376cee7a2cbf56553fe5b982ea53c/packages/babel-core/src/transformation/file/index.js#L483
       origAddCode = file.addCode
 
       file.addCode(code) ->
         origAddCode.call(this, code)
-        computeParserOpts(this)
+        pluginOpts = findBabelOptionsForPlugin(this.opts, plugin)
+
+        // compiler = createCompilerState()
+        // this.lscCompiler = compiler
+        // compiler~preParseInitialization(this, code, this.opts, pluginOpts)
+        computeParserOpts(this, pluginOpts)
         return
 
-    visitor
+    visitor: {
+      // The compiler's main loop is a Program visitor.
+      Program(path, state): void ->
+        ////////// Initialize compilation run
+        // Obtain configuration
+        opts = state.opts
+        compiler = createCompilerState({
+          programPath: path
+          babel
+          opts
+          file: state.file
+        })
+
+        // Early-out if not a LightScript program
+        if (!compiler.isLightScript) return
+
+        initializeCompilerState()
+
+        // TODO: helpers -> compilerState
+        resetHelpers(path)
+
+        ////////// AST visitation and transformation
+        // First pass: Perform basic ast fixups (block bodies, etc)
+        compiler~visitAstFixup(path)
+        // Second pass: transform placeholders
+        if compiler.opts.placeholderArgs:
+          compiler~visitPlaceholders(path)
+        // Third pass: transform optional chains
+        compiler~visitOptionalChains(path)
+        // Main ast visitor
+        compiler~visitMain(path)
+
+        ////////// Post-processing
+        // Fix up loose ends like adding `import` statements
+        compiler~postprocess()
+    }
   }
-
-  plugin
-
-export default Lightscript
