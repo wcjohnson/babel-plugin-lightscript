@@ -1,9 +1,8 @@
 // Tools for dealing with destructuring patterns.
 
-import t from './types'
+import t, { isa } from '../types'
 import { createAndExpression as And, createOrExpression as Or, createNotExpression as Not } from './logical'
-import { runtime } from './runtime'
-import { isa } from './is'
+import { runtime } from '../state/runtime'
 import atNode from 'ast-loc-utils/lib/placeAtNode'
 
 export isDestructuringPattern(node) ->
@@ -18,6 +17,7 @@ export isNonEmptyPattern(pattern) ->
   match pattern.type:
     | "ArrayPattern": pattern.elements?.length > 0
     | "ObjectPattern": pattern.properties?.length > 0
+    | else: false
 
 ////////// Array pattern matching
 Bracket(array, i, element) ->
@@ -115,7 +115,8 @@ export toRestructureExpressionForArrayPattern(pattern) ->
       match element:
         | ~isa("AssignmentPattern"): element.left~maybeToRestructureExpression()
         | ~isa("RestElement"): t.spreadElement(element.argument)~atNode(element)
-        | else: element~maybeToRestructureExpression()
+        | ~isDestructuringPattern(): element~toRestructureExpression()
+        | else: element
     ]
   )~atNode(pattern)
 

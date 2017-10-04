@@ -1,9 +1,9 @@
-import patch from './util/babelTypesPatch'
-import { registerLightscriptNodeTypes } from './lscNodeTypes'
+import patch from '../util/babelTypesPatch'
+import { registerLightscriptNodeTypes } from '../lscNodeTypes'
 import { initializeStdlib } from './stdlib'
 import { initializeRuntime } from './runtime'
 import { insertImports } from './imports'
-import { getInlinedOperatorsEnabled } from './inlinedOperators'
+import { getInlinedOperatorsEnabled } from '../transforms/inlinedOperators' // XXX
 
 import { getLoc, span } from 'ast-loc-utils'
 

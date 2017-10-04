@@ -1,6 +1,5 @@
-import is, { isa } from './is'
 import { transformTails } from './tails'
-import t from './types'
+import t, { isa } from '../types'
 import { toBlockStatement } from './blocks'
 
 import getLoc from 'ast-loc-utils/lib/getLoc'
@@ -13,7 +12,7 @@ export addImplicitReturns(functionPath) ->
   node = functionPath.node
   // Don't add implicit returns to constructors, setters, or :void functions
   if node.kind === "constructor" or node.kind === "set": return
-  if is("VoidTypeAnnotation", node.returnType?.typeAnnotation): return
+  if node.returnType?.typeAnnotation~isa("VoidTypeAnnotation"): return
 
   // Implicit return transformations
   transform(expr, path) ->

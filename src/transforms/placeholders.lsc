@@ -1,4 +1,4 @@
-import t from './types'
+import t from '../types'
 
 isIndexedPlaceholderPath(phPath) -> phPath.node.index?
 isSpreadPlaceholderPath(phPath) -> phPath.parentPath?.node.type == "SpreadElement"

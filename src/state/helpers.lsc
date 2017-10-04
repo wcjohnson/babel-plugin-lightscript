@@ -1,5 +1,5 @@
 import { getBabel } from './compilerState'
-import { isa } from './is'
+import { isa } from '../types'
 
 let helpers = {}
 let helperPath = null

@@ -1,4 +1,4 @@
-import { maybeTransformSafe } from '../safe'
+import { maybeTransformSafe } from '../transforms/safe'
 
 export transformSafeExprs(programPath) ->
   programPath.traverse({

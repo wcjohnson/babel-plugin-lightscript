@@ -1,4 +1,4 @@
-import { getScopeParent } from './blocks'
+import { getScopeParent } from '../helpers/blocks'
 import { createImports, addImport, insertImports as ii } from './imports'
 
 export const everyLodashMethod = [

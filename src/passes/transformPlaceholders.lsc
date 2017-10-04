@@ -1,3 +1,0 @@
-import { transformPlaceholders } from '../placeholders'
-
-export { transformPlaceholders }

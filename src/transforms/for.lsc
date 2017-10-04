@@ -1,6 +1,6 @@
-import t from './types'
-import { ensureBlockBody } from './blocks'
-import { undeclaredRef } from './ref'
+import t from '../types'
+import { ensureBlockBody } from '../helpers/blocks'
+import { undeclaredRef } from '../helpers/variables'
 
 import { getLoc, placeAtLoc as atLoc, placeAtNode as atNode, span, placeTreeAtLocWhenUnplaced as allAtLoc, getSurroundingLoc } from 'ast-loc-utils'
 

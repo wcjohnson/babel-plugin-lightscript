@@ -1,11 +1,9 @@
-import t from './types'
-import { toBlockStatement } from './blocks'
-import { isa } from './is'
-import { undeclaredRef } from './ref'
-import { matchesDestructuringPattern, accessors, isNonEmptyPattern } from './destructure'
-import { createAndExpression as And, createOrExpression as Or } from './logical'
-import { runtime } from './runtime'
-import { checkFalsePositiveReference } from './variables'
+import t, { isa } from '../types'
+import { toBlockStatement } from '../helpers/blocks'
+import { undeclaredRef, checkFalsePositiveReference } from '../helpers/variables'
+import { matchesDestructuringPattern, accessors, isNonEmptyPattern } from '../helpers/destructure'
+import { createAndExpression as And, createOrExpression as Or } from '../helpers/logical'
+import { runtime } from '../state/runtime'
 
 import {
   getLoc, placeAtLoc as atLoc, placeAtNode as atNode,

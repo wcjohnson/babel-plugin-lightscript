@@ -1,10 +1,11 @@
-import t from './types'
+import t from '../types'
 import getSurroundingLoc from 'ast-loc-utils/lib/getSurroundingLoc'
 import atLoc from 'ast-loc-utils/lib/placeAtLoc'
 import atNode from 'ast-loc-utils/lib/placeAtNode'
+{ isArray } = Array
 
 export createLogicalExpression(operator, ...conditions) ->
-  if conditions.length == 1 and Array.isArray(conditions[0]):
+  if conditions.length == 1 and conditions[0]~isArray():
     now conditions = conditions[0]
 
   match conditions:
@@ -20,13 +21,13 @@ export createLogicalExpression(operator, ...conditions) ->
       )~atLoc(getSurroundingLoc(conditions))
 
 export createAndExpression(...conditions) ->
-  if conditions.length == 1 and Array.isArray(conditions[0]):
+  if conditions.length == 1 and conditions[0]~isArray():
     now conditions = conditions[0]
 
   createLogicalExpression("&&", conditions)
 
 export createOrExpression(...conditions) ->
-  if conditions.length == 1 and Array.isArray(conditions[0]):
+  if conditions.length == 1 and conditions[0]~isArray():
     now conditions = conditions[0]
 
   createLogicalExpression("||", conditions)

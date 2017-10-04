@@ -1,5 +1,4 @@
-import is from './is'
-import t from './types'
+import t, { is } from '../types'
 
 // Check if the given path or any of its descendants contains a `super()`
 // call expression.

@@ -1,4 +1,4 @@
-import t from './types'
+import t from '../types'
 import { getCompilerState } from './compilerState'
 
 import { placeTreeAtLocWhenUnplaced as allAtLoc } from 'ast-loc-utils'

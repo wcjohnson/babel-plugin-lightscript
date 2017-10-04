@@ -1,7 +1,6 @@
-import t from './types'
-import { transformTails } from './tails'
-import { isa } from './is'
-import { toStatement } from './blocks'
+import t, { isa } from '../types'
+import { transformTails } from '../helpers/tails'
+import { toStatement } from '../helpers/blocks'
 
 import { getLoc, placeAtLoc as atLoc, placeAtNode as atNode, getSurroundingLoc, span, placeTreeAtLocWhenUnplaced as allAtLoc } from 'ast-loc-utils'
 

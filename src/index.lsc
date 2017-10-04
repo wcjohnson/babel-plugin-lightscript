@@ -1,4 +1,4 @@
-import is, { isa } from "./is"
+import { is, isa } from "./types"
 
 import { placeAtNode as atNode, placeTreeAtLocWhenUnplaced as allAtLoc, getLoc, placeAtLoc as atLoc, getSurroundingLoc } from 'ast-loc-utils'
 
@@ -8,23 +8,26 @@ import { registerLightscriptNodeTypes } from './lscNodeTypes'
 import {
   addImplicitReturns, replaceWithPlainFunction, replaceWithArrowFunction,
   replaceWithBoundFunction
-} from "./functions";
-import { blockToExpression, iife } from "./blocks";
-import { getShadowingIdentifiers, checkFalsePositiveReference } from "./variables";
-import { ensureConstructor, bindMethodsInConstructor, bindMethods } from "./classes";
-import * as matching from "./match";
-import * as comprehension from "./comprehension";
-import { transformExistentialExpression } from "./safe";
-import { maybeReplaceWithInlinedOperator } from "./inlinedOperators";
-import { transformForInArrayStatement, transformForInObjectStatement, lintForInArrayStatement, lintForInObjectStatement } from "./for";
-import { resetHelpers } from "./helpers";
-import { markIdentifier } from "./stdlib";
-import { locatePluginOpts, getParserOpts, parseConfigurationDirectives } from './config'
-import { getFileTypeInfo, createCompilerState, initializeCompilerState, postprocess } from './compilerState'
-import { fixAst } from './passes/fixAst'
-import { transformPlaceholders } from './passes/transformPlaceholders'
-import { transformSafeExprs } from './passes/transformSafeExprs'
-import { transformPipeOperator } from './pipe'
+} from "./helpers/functions";
+import { blockToExpression, iife } from "./helpers/blocks";
+import { getShadowingIdentifiers, checkFalsePositiveReference } from "./helpers/variables";
+
+import { ensureConstructor, bindMethodsInConstructor, bindMethods } from "./transforms/classes";
+import * as matching from "./transforms/match";
+import * as comprehension from "./transforms/comprehension";
+import { transformExistentialExpression } from "./transforms/safe";
+import { maybeReplaceWithInlinedOperator } from "./transforms/inlinedOperators";
+import { transformForInArrayStatement, transformForInObjectStatement, lintForInArrayStatement, lintForInObjectStatement } from "./transforms/for";
+import { resetHelpers } from "./state/helpers"; // XXX: should be part of state init
+import { markIdentifier } from "./state/stdlib";
+import { getParserOpts, parseConfigurationDirectives } from './config'
+import findBabelOptionsForPlugin from './util/findBabelOptionsForPlugin'
+import { getFileTypeInfo, createCompilerState, initializeCompilerState, postprocess } from './state/compilerState'
+import { transformPipeOperator } from './transforms/pipe'
+
+import { fixAst } from './visitors/fixAst'
+import { transformPlaceholders } from './visitors/transformPlaceholders'
+import { transformSafeExprs } from './visitors/transformSafeExprs'
 
 Lightscript(babel) ->
   { types: t } = babel
@@ -276,7 +279,7 @@ Lightscript(babel) ->
     file.parseShebang()
     { opts, parserOpts } = file
     fileTypeInfo = getFileTypeInfo(file)
-    pluginOpts = locatePluginOpts(opts, plugin) or {} // XXX: see comments below
+    pluginOpts = findBabelOptionsForPlugin(opts, plugin) // XXX: see comments below
     cdOpts = parseConfigurationDirectives(file.code)
 
     // Don't read as LSC

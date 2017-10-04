@@ -1,7 +1,6 @@
-import t from './types'
+import t, { isa } from '../types'
 import atNode from 'ast-loc-utils/lib/placeAtNode'
-import { hoistRef, isSimple } from './ref'
-import { isa } from './is'
+import { hoistRef, isSimple } from '../helpers/variables'
 
 // Optional-replacement algorithm based on babel-plugin-transform-optional-chaining
 // See https://github.com/babel/babel/blob/master/packages/babel-plugin-transform-optional-chaining/src/index.js
