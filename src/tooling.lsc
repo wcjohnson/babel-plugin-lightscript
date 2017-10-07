@@ -1,0 +1,20 @@
+// API for external tools, such as the linter, that share functionality with
+// the compiler.
+
+// Given a file path, locate the applicable .babelrc and extract the options
+// pertinent to the LightScript plugin.
+locateBabelConfig(filePath) ->
+  // Check if filePath is nonsense
+  // Use find-babel-config
+  // Extract compiler options from either preset or plugin if they exist.
+  undefined
+
+// Obtain compiler configuration information using the same algorithms used
+// by the compiler itself. Loads .babelrc and configuration directives.
+export getCompilerConfiguration(filePath, code) ->
+  undefined
+
+// Parse code, including configuration directives, generating parser options
+// the same way the compiler does.
+export parse(code, baseParserOpts, baseCompilerConfig) ->
+  undefined
