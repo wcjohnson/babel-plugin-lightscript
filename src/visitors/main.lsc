@@ -15,7 +15,6 @@ import * as comprehension from "../transforms/comprehension";
 import { transformExistentialExpression } from "../transforms/safe";
 import { maybeReplaceWithInlinedOperator } from "../transforms/inlinedOperators";
 import { transformForInArrayStatement, transformForInObjectStatement, lintForInArrayStatement, lintForInObjectStatement } from "../transforms/for";
-import { transformPipeOperator } from '../transforms/pipe'
 
 import { markIdentifier } from "../state/stdlib";
 
@@ -24,9 +23,6 @@ export default visitMain(compilerState, programPath): void ->
   { opts } = compilerState
   // Main LSC transforms
   programPath.traverse({
-    PipeCallExpression(path): void ->
-      transformPipeOperator(path)
-
     ForInArrayStatement(path): void ->
       // TODO: push the linter conditional down into the transform
       // and get linter status from compilerState

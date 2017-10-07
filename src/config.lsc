@@ -41,6 +41,7 @@ export getMetadata() ->
       enhancedComprehension: {
         description: "Positional comprehensions and `case` syntax for comprehensions"
         valueType: "boolean"
+        defaultValue: true
         stage: "0"
       }
       noEnforcedSubscriptIndentation: {
@@ -70,10 +71,6 @@ export getMetadata() ->
       placeholder: {
         description: "Specify an identifier to be transformed into PlaceholderExpression."
         valueType: "string"
-      }
-      pipeCall: {
-        description: "a |> b infix binary operator invokes b(a)"
-        valueType: "boolean"
       }
     }
   }
@@ -110,7 +107,6 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
   if pluginOpts?.placeholderArgs: plugins.push("syntacticPlaceholder")
   if pluginOpts?.placeholder:
     parserOpts.placeholder = pluginOpts.placeholder
-  if pluginOpts?.pipeCall: plugins.push("pipeCall")
 
   // TODO: watch upstream on pattern matching; default to their syntax when complete
   // patternMatchingVersion = pluginOpts?.patternMatching or "v4"
