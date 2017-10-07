@@ -1,3 +1,3 @@
 {
-  "plugins": ["lightscript"]
+  "plugins": [["lightscript", { "isLightScript": true }]]
 }

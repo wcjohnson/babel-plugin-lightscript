@@ -2,78 +2,91 @@ import * as babylonLightScript from "@oigroup/babylon-lightscript";
 import packageMetadata from "../package.json";
 import parseConfigurationDirectives from './util/parseConfigurationDirectives'
 
-export getMetadata() ->
-  {
-    parser: babylonLightScript
-    getParserOpts
-    parseConfigurationDirectives
-    name: packageMetadata.name
-    version: packageMetadata.version
-    options: {
-      stdlib: {
-        description: "Configure the LightScript standard library"
-      }
-      patternMatching: {
-        description: "Test and branch using `match` keyword"
-        valueType: "option"
-        options: ["default", "enhanced"]
-        defaultValue: "default"
-        stage: "1"
-      }
-      whiteblock: {
-        description: "Disable `{` `}` as block delimiters."
-        valueType: "boolean"
-      }
-      bangCall: {
-        description: "Call functions with paren-free syntax using `!`"
-        valueType: "boolean"
-        defaultValue: true
-      }
-      safeCall: {
-        description: "Call a function using `?` to check callability first"
-        valueType: "boolean"
-        defaultValue: true
-      }
-      existential: {
-        description: "Postfix `?` checks that an expression is not loose-equal to `null`"
-        valueType: "boolean"
-      }
-      enhancedComprehension: {
-        description: "Positional comprehensions and `case` syntax for comprehensions"
-        valueType: "boolean"
-        defaultValue: true
-        stage: "0"
-      }
-      noEnforcedSubscriptIndentation: {
-        description: "Do not enforce indentation for subscripts on subsequent lines."
-        valueType: "boolean"
-      }
-      useRequire: {
-        description: "Generate `require` rather than `import` when the compiler introduces a module."
-        valueType: "boolean"
-      }
-      flippedImports: {
-        description: "Allow imports via `import 'path': [specifier]` syntax."
-        valueType: "boolean"
-      }
-      disableJsx: {
-        description: "Don't parse JSX expressions."
-        valueType: "boolean"
-      }
-      disableFlow: {
-        description: "Don't parse Flow type annotations."
-        valueType: "boolean"
-      }
-      placeholderArgs: {
-        description: "Specify arguments for a function using placeholders in the body."
-        valueType: "boolean"
-      }
-      placeholder: {
-        description: "Specify an identifier to be transformed into PlaceholderExpression."
-        valueType: "string"
-      }
+export getMetadata() -> {
+  parser: babylonLightScript
+  getParserOpts
+  parseConfigurationDirectives
+  name: packageMetadata.name
+  version: packageMetadata.version
+  options: {
+    stdlib: {
+      description: "Configure the LightScript standard library"
+    }
+    patternMatching: {
+      description: "Test and branch using `match` keyword"
+      valueType: "option"
+      options: ["default", "enhanced"]
+      defaultValue: "default"
+      stage: "1"
+    }
+    whiteblock: {
+      description: "Disable `{` `}` as block delimiters."
+      valueType: "boolean"
+    }
+    bangCall: {
+      description: "Call functions with paren-free syntax using `!`"
+      valueType: "boolean"
+      defaultValue: true
+    }
+    safeCall: {
+      description: "Call a function using `?` to check callability first"
+      valueType: "boolean"
+      defaultValue: true
+    }
+    existential: {
+      description: "Postfix `?` checks that an expression is not loose-equal to `null`"
+      valueType: "boolean"
+    }
+    enhancedComprehension: {
+      description: "Positional comprehensions and `case` syntax for comprehensions"
+      valueType: "boolean"
+      defaultValue: true
+      stage: "0"
+    }
+    noEnforcedSubscriptIndentation: {
+      description: "Do not enforce indentation for subscripts on subsequent lines."
+      valueType: "boolean"
+    }
+    useRequire: {
+      description: "Generate `require` rather than `import` when the compiler introduces a module."
+      valueType: "boolean"
+    }
+    flippedImports: {
+      description: "Allow imports via `import 'path': [specifier]` syntax."
+      valueType: "boolean"
+    }
+    disableJsx: {
+      description: "Don't parse JSX expressions."
+      valueType: "boolean"
+    }
+    disableFlow: {
+      description: "Don't parse Flow type annotations."
+      valueType: "boolean"
+    }
+    placeholderArgs: {
+      description: "Specify arguments for a function using placeholders in the body."
+      valueType: "boolean"
+    }
+    placeholder: {
+      description: "Specify an identifier to be transformed into PlaceholderExpression."
+      valueType: "string"
     }
   }
+}
+
+getFileTypeInfo(file) ->
+  if not file?.opts?.filename: return { isLightScript: true, isLSX: false }
+  filename = file.opts.filename
+
+  if filename.includes(".lsx"): return { isLightScript: true, isLSX: true }
+
+  if (
+    filename === "unknown" or // eslint
+    filename === "repl" or // babel-node
+    filename.includes(".lsc")
+  ): return { isLightScript: true, isLSX: false }
+
+  return { isLightScript: false, isLSX: false }
 
 export getParserOpts(pluginOpts, initialParserOpts) ->
   parserOpts = initialParserOpts or {}
@@ -116,12 +129,29 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
 
   parserOpts
 
-export preParseInitialization(compiler, babelFile, pluginOpts) ->
+// Pre-parse initialization of compiler state. All configuration data is
+// collected here.
+export preParseInitialization(compiler, babelFile, pluginOpts): void ->
+  compiler.file = babelFile
+  compiler.opts = pluginOpts
+
   babelFile.parseShebang()
   { opts, parserOpts, code } = babelFile
+  fileTypeInfo = getFileTypeInfo(babelFile)
+  if fileTypeInfo.isLightScript and (pluginOpts.isLightScript == undefined):
+    pluginOpts.isLightScript = true
+
   directiveOpts = parseConfigurationDirectives(code)
+  Object.assign(pluginOpts, directiveOpts)
 
+  if pluginOpts.isLightScript:
+    compiler.isLightScript = true
+    babelFile.isLightScript = true
+    compiler.isLSX = pluginOpts.isLSX
+    babelFile.isLSX = pluginOpts.isLSX
 
-
-// XXX: shouldn't be needed, refactor
-export { parseConfigurationDirectives }
+    // Set up LSC parsing pipeline
+    opts.parserOpts = opts.parserOpts or {}
+    nextParserOpts = getParserOpts(pluginOpts, opts.parserOpts)
+    parserOpts.parse = nextParserOpts.parse
+    parserOpts.plugins = nextParserOpts.plugins

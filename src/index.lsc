@@ -1,43 +1,13 @@
-import patch from './util/babelTypesPatch'
-import { registerLightscriptNodeTypes } from './lscNodeTypes'
-
-import { resetHelpers } from "./state/helpers"; // XXX: should be part of state init
-import { getParserOpts, parseConfigurationDirectives } from './config'
+import { preParseInitialization } from './config'
 import findBabelOptionsForPlugin from './util/findBabelOptionsForPlugin'
-import { getFileTypeInfo, createCompilerState, initializeCompilerState, postprocess } from './state/compilerState'
+import { createCompilerState, preCompileInitialization, postprocess } from './state/compilerState'
 
 import visitAstFixup from './visitors/fixAst'
 import visitPlaceholders from './visitors/placeholders'
 import visitOptionalChains from './visitors/optionalChains'
 import visitMain from './visitors/main'
 
-// TODO: factor out to config.lsc
-computeParserOpts(file, pluginOpts) ->
-  // By this time, we have access to the code of the file.
-  // We can parse shebang, directives, etc and manipulate parser options
-  // based on those data.
-  file.parseShebang()
-  { opts, parserOpts } = file
-  fileTypeInfo = getFileTypeInfo(file)
-  cdOpts = parseConfigurationDirectives(file.code)
-
-  // Don't read as LSC
-  if (not fileTypeInfo.isLightScript) and (not cdOpts.isLightScript): return
-
-  file.isLightScript = true
-  Object.assign(pluginOpts, cdOpts)
-
-  // Get LSC parser opts
-  opts.parserOpts = opts.parserOpts or {}
-  nextParserOpts = getParserOpts(pluginOpts, opts.parserOpts)
-  parserOpts.parse = nextParserOpts.parse
-  parserOpts.plugins = nextParserOpts.plugins
-
 export default LightScript(babel) ->
-  { types: t } = babel
-  patch(t)
-  registerLightscriptNodeTypes(t)
-
   plugin = {
     manipulateOptions(opts, parserOpts, file) ->
       // manipulateOptions is called very early in the Babel processing chain.
@@ -60,32 +30,22 @@ export default LightScript(babel) ->
         origAddCode.call(this, code)
         pluginOpts = findBabelOptionsForPlugin(this.opts, plugin)
 
-        // compiler = createCompilerState()
-        // this.lscCompiler = compiler
-        // compiler~preParseInitialization(this, code, this.opts, pluginOpts)
-        computeParserOpts(this, pluginOpts)
+        compiler = createCompilerState(babel)
+        this.lscCompiler = compiler
+        compiler~preParseInitialization(this, pluginOpts)
         return
 
     visitor: {
       // The compiler's main loop is a Program visitor.
       Program(path, state): void ->
+        // Skip non-LightScript code
+        if not state.file.isLightScript: return
+
+        // Obtain compiler state created during early processing
+        compiler = state.file.lscCompiler
+
         ////////// Initialize compilation run
-        // Obtain configuration
-        opts = state.opts
-        compiler = createCompilerState({
-          programPath: path
-          babel
-          opts
-          file: state.file
-        })
-
-        // Early-out if not a LightScript program
-        if (!compiler.isLightScript) return
-
-        initializeCompilerState()
-
-        // TODO: helpers -> compilerState
-        resetHelpers(path)
+        compiler~preCompileInitialization(path)
 
         ////////// AST visitation and transformation
         // First pass: Perform basic ast fixups (block bodies, etc)
