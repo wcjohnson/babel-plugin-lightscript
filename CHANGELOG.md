@@ -89,62 +89,65 @@ We're trying to converge with the JS safe traversal proposal when possible, as w
 
 LightScript upstream has indicated they will be accepting this feature, so it is now on by default. `{bangCall: false}` can still be passed to disable it. The flag will be removed altogether when LightScript proper integrates the feature.
 
-## Comprehensions
+## Spread Loops (formerly Comprehensions)
 
 ### Changes
 
-#### 1. Comprehensions have a new syntax:
+#### 1. All previous iterations of comprehensions have been removed.
+
+This is now illegal:
+
+```js
+[for elem e in arr: e]
+```
+
+This is now a block of code consisting of a `for` loop, rather than an object:
+```
+{for elem e in arr: (e, e)}
+```
+
+The `enhancedComprehension` compiler flag and all associated syntax have been removed as well.
+
+#### 2. `for` loops can now be spread:
 
 ```js
 x = [
-  // Comprehensions may include regular array elements, which are passed directly
-  // into the produced array
-  1
-  // `...for` introduces a loop comprehension: each time the loop reaches a tail
-  // expression, an item will be inserted into the array. Note the addition of the
-  // ellipsis `...` which was not required in previous syntax.
-  ...for elem e in [2, 3, 4]: e
-  // `...if` introduces a conditional comprehension: if the test expression is
-  // truthy, the consequent expression is inserted into the array. If no alternate
-  // expression is provided, and the test is falsy, nothing is inserted into
-  // the array.
+  // A spread loop is introduced by `...for` and behaves as if a spread
+  // element were added to the array for each iteration of the loop. The
+  // last expression reached by the loop will be spread into the final array.
   //
-  // This behavior differs from a standard `if` expression which would insert an
-  // `undefined` entry into the array in that circumstance.
-  ...if not skipFive: 5
-  // Comprehensions can be mixed in with regular items in any combination.
-  6
-  ...for elem e in [7, 8]: e
+  // In most cases, this means wrapping the element that you want to add
+  // to the final array in `[ ]`
+  ...for elem e in arr: [e] // produces [ e1, e2, ... ]
+  // If you want to create nested arrays, you must add an extra level of nesting
+  // at the end:
+  ...for elem e in arr: [ [ e ] ] // produces [ [e1], [e2], ... ]
+  // You can also add multiple elements to the output array per loop iteration:
+  ...for elem e in arr: [e, e+1] // [e1, e1+1, e2, e2+1, ...]
+  // The loop is still elisive, meaning you can skip elements you don't want
+  // added to the final array:
+  ...for elem e in arr: if e > 10: [ e ]
+  // You can mix spreads with regular entries as normal
+  42
+  ...es2015Spread
 ]
 ```
 
-The `case` keyword is no longer used.
-
-#### 2. Object comprehensions no longer use tuples to represent object elements.
-
-Instead, an object expression that is effectively merged into the underlying object is provided:
-
 ```js
-reverse(obj) -> ({
-  // Object comprehensions now end with an object literal that will effectively
-  // be `Object.assign`ed to the object being assembled.
-  ...for key k, val v in obj: { [v]: k }
-})
+reversedObj = {
+  // Spread loops work with objects too. As with ES2015 object spread, the
+  // loop must end with an expression that will be `Object.assign`ed to the
+  // output object.
+  ...for key k, val v in otherObj: {[v]: k}
+}
 ```
-
-#### 3. `{ enhancedComprehension: true }` is now the default.
-
-The new syntax is enabled by default in order to mesh with the new block parsing strategy. For enhanced backward compatibility with 0.5.9, passing `{ enhancedComprehension: false }` disables the new syntax and reverts to the old comprehension syntax.
-
-This flag will be removed completely once LightScript upstream adopts the syntax.
-
 ### Rationale
 
-The addition of `...` solves the serious grammar ambiguity at https://github.com/wcjohnson/lightscript/issues/25.
+- The addition of `...` solves the serious grammar ambiguity at https://github.com/wcjohnson/lightscript/issues/25.
 
-`...if` should be more readable and clearer than the `case` syntax it replaced.
+- In general, the syntax and semantics here are designed to correspond with ES2015+ spread `...` syntax, bringing the language closer to the standard and leaving less room for user surprise.
 
-Sequence expressions in object comprehensions have always been a bit unfortunate, as the overload violates the semantics of JS sequence expressions. The object expression, though more verbose, is ultimately a clearer syntax that doesn't introduce an edge case into the language.
+- Spread loops are more powerful than previous iterations of comprehensions, allowing each loop iteration to map to zero, one, or any number of output elements.
 
 ## Object-block ambiguity
 
@@ -214,7 +217,7 @@ Labeled expressions are illegal. (3:2)
 
 ### Rationale
 
-It is easy for new LightScript users to get burned by the distinctions between objects and blocks of code in the LightScript grammar:
+It is easy for LightScript users to get burned by the distinctions between objects and blocks of code in the LightScript grammar:
 ```js
 f() -> {}
 g() -> ({})
@@ -225,7 +228,7 @@ y = g()
 // y === { }
 ```
 
-The general intent of these changes is to eliminate these sorts of traps and edge cases. Ideally the output of the compiler should "just makes sense" and it is not necessary to remember the specific rules about how braces are parsed.
+The general intent of these changes is to eliminate these sorts of traps and edge cases. Ideally the output of the compiler should "just make sense" and it is not necessary to remember the specific rules about how braces are parsed.
 
 Labeled expressions increase the number of scenarios where objects and blocks can be confused with each other, and don't make much sense on their own, so they have been outlawed.
 
@@ -263,3 +266,13 @@ In the simplest possible terms, `whiteblock` makes the compiler behave as if you
 ### Rationale
 
 The context-sensitive brace parser is implemented using speculative branching, which can essentially double the amount of work the parser has to do in a lot of situations. This flag will greatly speed up the LightScript parser for those who use whitespace-sensitive syntax, as it is no longer necessary for the parser to speculate when encountering `{ }`.
+
+## `pipeCall` option eliminated
+
+### Change
+
+`pipeCall` is no longer available as an option and the syntax has been removed.
+
+### Rationale
+
+Nobody was willing to strongly advocate for this feature or present a compelling use case. In general, the advantanges of `pipeCall`s are already available in the language through other means. Thus it's not worthwile maintaining this syntax.
