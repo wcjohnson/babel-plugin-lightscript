@@ -109,7 +109,7 @@ transformObjectComprehensionTails(loopPath, id): void ->
         // Simple object case: { [k]: v } --> obj[k] = v
         { properties: [prop] } = expr
         t.assignmentExpression("=",
-          t.memberExpression(id, prop.key, prop.computed)~atNode(expr),
+          t.memberExpression(id, prop.key, prop.computed or (not prop.key~isa("Identifier")))~atNode(expr),
           prop.value
         )~atNode(expr)
       else:
