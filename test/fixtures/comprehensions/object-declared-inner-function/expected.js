@@ -4,6 +4,5 @@
     _obj[i] = function g(x) {
       return x + 1;
     };
-  }
-  return _obj;
+  }return _obj;
 })();

@@ -5,21 +5,21 @@ import { placeAtNode as atNode, placeTreeAtLocWhenUnplaced as allAtLoc, getLoc, 
 import {
   addImplicitReturns, replaceWithPlainFunction, replaceWithArrowFunction,
   replaceWithBoundFunction
-} from "../helpers/functions";
-import { blockToExpression, iife } from "../helpers/blocks";
-import { getShadowingIdentifiers, checkFalsePositiveReference } from "../helpers/variables";
+} from "../helpers/functions"
+import { blockToExpression, iife } from "../helpers/blocks"
+import { getShadowingIdentifiers, checkFalsePositiveReference } from "../helpers/variables"
 
-import { ensureConstructor, bindMethodsInConstructor, bindMethods } from "../transforms/classes";
-import * as matching from "../transforms/match";
-import * as comprehension from "../transforms/comprehension";
-import { transformExistentialExpression } from "../transforms/safe";
-import { maybeReplaceWithInlinedOperator } from "../transforms/inlinedOperators";
-import { transformForInArrayStatement, transformForInObjectStatement, lintForInArrayStatement, lintForInObjectStatement } from "../transforms/for";
+import { ensureConstructor, bindMethodsInConstructor, bindMethods } from "../transforms/classes"
+import * as matching from "../transforms/match"
+import { maybeTransformArrayWithSpreadLoops, maybeTransformObjectWithSpreadLoops, maybeTransformJSXExpressionWithSpreadLoop } from "../transforms/comprehension"
+import { transformExistentialExpression, transformSafeSpreadElement } from "../transforms/safe"
+import { maybeReplaceWithInlinedOperator } from "../transforms/inlinedOperators"
+import { transformForInArrayStatement, transformForInObjectStatement, lintForInArrayStatement, lintForInObjectStatement } from "../transforms/for"
 
-import { markIdentifier } from "../state/stdlib";
+import { markIdentifier } from "../state/stdlib"
 
 // Main AST visitor
-export default visitMain(compilerState, programPath): void ->
+export default mainPass(compilerState, programPath): void ->
   { opts } = compilerState
   // Main LSC transforms
   programPath.traverse({
@@ -38,18 +38,6 @@ export default visitMain(compilerState, programPath): void ->
         lintForInObjectStatement(path)
       else:
         transformForInObjectStatement(path);
-
-    ArrayComprehension(path): void ->
-      if opts.enhancedComprehension != false:
-        comprehension.transformArrayComprehension(path)
-      else:
-        comprehension.transformPlainArrayComprehension(path)
-
-    ObjectComprehension(path): void ->
-      if opts.enhancedComprehension != false:
-        comprehension.transformObjectComprehension(path)
-      else:
-        comprehension.transformPlainObjectComprehension(path)
 
     CallExpression(path): void ->
       { node } = path
@@ -118,6 +106,12 @@ export default visitMain(compilerState, programPath): void ->
         bindMethods(path.parentPath, fatStaticArrows);
       }
 
+    JSXExpressionContainer(path): void ->
+      path~maybeTransformJSXExpressionWithSpreadLoop()
+
+    ArrayExpression(path): void ->
+      path~maybeTransformArrayWithSpreadLoops()
+
     ObjectExpression(path): void ->
       fatArrowKeys = [
         ...for elem prop in path.node.properties:
@@ -126,7 +120,14 @@ export default visitMain(compilerState, programPath): void ->
             prop.key
       ]
 
+      // ObjectExpression may get replaced with an IIFE here...
+      if path~maybeTransformObjectWithSpreadLoops(): path.resync()
+
       if fatArrowKeys.length: bindMethods(path, fatArrowKeys)
+
+    SpreadElement(path): void ->
+      if not path.node._safe: // prevent infinite recursion
+        path~transformSafeSpreadElement()
 
     Function: {
       exit(path): void ->
@@ -182,13 +183,12 @@ export default visitMain(compilerState, programPath): void ->
       path.replaceWith(awaitExpr)
 
     AwaitExpression(path): void ->
-      if (path.get("argument").isArrayExpression() || path.node.argument.type === "ArrayComprehension") {
-        const promiseDotAllCall = t.callExpression(
+      if (path.get("argument")~isa("ArrayExpression")):
+        promiseDotAllCall = t.callExpression(
           t.memberExpression(t.identifier("Promise"), t.identifier("all")),
           [path.node.argument],
         );
         path.get("argument").replaceWith(promiseDotAllCall);
-      }
 
     VariableDeclaration(path): void ->
       // Error on auto-const when shadowing variable

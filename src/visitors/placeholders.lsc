@@ -1,4 +1,0 @@
-import { transformAllPlaceholders } from '../transforms/placeholders'
-
-export default visitPlaceholders(compiler, path): void ->
-  transformAllPlaceholders(path)
