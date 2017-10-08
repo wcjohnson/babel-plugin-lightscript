@@ -2,10 +2,10 @@ import { preParseInitialization } from './config'
 import findBabelOptionsForPlugin from './util/findBabelOptionsForPlugin'
 import { createCompilerState, preCompileInitialization, postprocess } from './state/compilerState'
 
-import visitAstFixup from './visitors/fixAst'
-import visitPlaceholders from './visitors/placeholders'
-import visitOptionalChains from './visitors/optionalChains'
-import visitMain from './visitors/main'
+import firstPass from './visitors/firstPass'
+import secondPass from './visitors/secondPass'
+import thirdPass from './visitors/thirdPass'
+import mainPass from './visitors/main'
 
 export default LightScript(babel) ->
   plugin = {
@@ -49,14 +49,13 @@ export default LightScript(babel) ->
 
         ////////// AST visitation and transformation
         // First pass: Perform basic ast fixups (block bodies, etc)
-        compiler~visitAstFixup(path)
-        // Second pass: transform placeholders
-        if compiler.opts.placeholderArgs:
-          compiler~visitPlaceholders(path)
+        compiler~firstPass(path)
+        // Second pass: placeholders, comprehensions
+        compiler~secondPass(path)
         // Third pass: transform optional chains
-        compiler~visitOptionalChains(path)
+        compiler~thirdPass(path)
         // Main ast visitor
-        compiler~visitMain(path)
+        compiler~mainPass(path)
 
         ////////// Post-processing
         // Fix up loose ends like adding `import` statements

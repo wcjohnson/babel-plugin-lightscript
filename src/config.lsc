@@ -100,7 +100,7 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
     "objectRestSpread", "asyncFunctions", "asyncGenerators"
     "classProperties", "classConstructorCall", "decorators"
     "dynamicImport", "doExpressions", "seqExprRequiresParen"
-    "noLabeledExpressionStatements"
+    "noLabeledExpressionStatements", "spreadLoop"
   )
 
   if pluginOpts?.whiteblock:
@@ -116,7 +116,6 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
   if pluginOpts?.bangCall != false: plugins.push("bangCall")
   if not pluginOpts?.noEnforcedSubscriptIndentation: plugins.push("enforceSubscriptIndentation")
   if pluginOpts?.flippedImports: plugins.push("flippedImports")
-  if pluginOpts?.enhancedComprehension != false: plugins.push("splatComprehension")
   if pluginOpts?.placeholderArgs: plugins.push("syntacticPlaceholder")
   if pluginOpts?.placeholder:
     parserOpts.placeholder = pluginOpts.placeholder

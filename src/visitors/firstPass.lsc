@@ -1,0 +1,18 @@
+// Perform non-semantic AST transformations like ensuring function bodies
+// are blocks, etc.
+import { isNamedArrowFunction, ensureBlockArrowFunctionExpression } from '../helpers/functions'
+import { toBlockStatement } from '../helpers/blocks'
+import { isa } from '../types'
+
+export default firstPass(compiler, programPath) ->
+  programPath.traverse({
+    Method(path): void ->
+      { node } = path
+      if isNamedArrowFunction(node):
+        node.body = toBlockStatement(node.body)
+        path.replaceWith(node)
+
+    MemberExpression(path): void ->
+      if path.node.optional and path.parent~isa("ArrowFunctionExpression"):
+        path.parentPath~ensureBlockArrowFunctionExpression()
+  })

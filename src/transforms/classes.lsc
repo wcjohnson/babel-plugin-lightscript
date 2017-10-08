@@ -1,5 +1,10 @@
 import t, { is } from '../types'
 
+// prevent generated spreadexpr from being further transformed
+safe(node) ->
+  node._safe = true
+  node
+
 // Check if the given path or any of its descendants contains a `super()`
 // call expression.
 export containsSuperCall(path) ->
@@ -61,7 +66,7 @@ export ensureConstructor(classPath, constructorBodyPath, withSuper = true) ->
       constructorBodyPath.parentPath.node.params = [t.restElement(argsUid)];
       t.expressionStatement(
         t.callExpression(t.super(), [
-          t.spreadElement(argsUid)
+          t.spreadElement(argsUid)~safe!
         ])
       )
 

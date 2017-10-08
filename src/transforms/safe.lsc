@@ -1,6 +1,10 @@
 import t, { isa } from '../types'
-import atNode from 'ast-loc-utils/lib/placeAtNode'
 import { hoistRef, isSimple } from '../helpers/variables'
+
+import {
+  getLoc, placeAtNode as atNode,
+  placeTreeAtLocWhenUnplaced as allAtLoc
+} from 'ast-loc-utils'
 
 // Optional-replacement algorithm based on babel-plugin-transform-optional-chaining
 // See https://github.com/babel/babel/blob/master/packages/babel-plugin-transform-optional-chaining/src/index.js
@@ -94,3 +98,22 @@ export transformExistentialExpression(path) ->
       t.nullLiteral()~atNode(path.node)
     )~atNode(path.node)
   )
+
+export transformSafeSpreadElement(path) ->
+  { ref, assign, isComplex } = hoistRef(path, path.node.argument, "ref")
+
+  cond = t.conditionalExpression(
+    t.binaryExpression("===", ref, t.unaryExpression("void", t.numericLiteral(0)))
+    t.arrayExpression(),
+    ref
+  )
+
+  nextNode = t.spreadElement(
+    if isComplex:
+      t.sequenceExpression([assign, cond])
+    else:
+      cond
+  )~allAtLoc(path.node~getLoc!)
+
+  nextNode._safe = true
+  path.replaceWith! nextNode
