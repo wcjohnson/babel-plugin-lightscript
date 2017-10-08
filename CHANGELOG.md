@@ -276,3 +276,21 @@ The context-sensitive brace parser is implemented using speculative branching, w
 ### Rationale
 
 Nobody was willing to strongly advocate for this feature or present a compelling use case. In general, the advantanges of `pipeCall`s are already available in the language through other means. Thus it's not worthwile maintaining this syntax.
+
+## `for..of` loops no longer require `const`
+
+### Change
+
+```js
+for x of xs: x
+// lightscript 0.5.9
+unknown: for-of requires a variable qualifier: `now` to reassign an existing variable, or `const`, `let`, `var` to declare a new one. (1:4)
+> 1 | for x of xs: x
+    |
+// @oigroup/lightscript 3.x
+for (x of xs) { x }
+```
+
+### Rationale
+
+Nobody was sure why this was being enforced; it is at odds with implicit qualification in other looping constructs like enhanced `for..in`.
