@@ -22,7 +22,8 @@
     "@oigroup/babylon-lightscript": "3.0.0-alpha.6",
     "@oigroup/lightscript-runtime": "^0.1.1",
     "ast-loc-utils": "^1.1.0",
-    "babel-types": "^6.25.0"
+    "babel-types": "^6.25.0",
+    "find-babel-config": "^1.1.0"
   },
   "files": [
     "lib"

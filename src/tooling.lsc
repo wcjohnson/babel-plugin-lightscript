@@ -1,20 +1,59 @@
 // API for external tools, such as the linter, that share functionality with
 // the compiler.
+import parseConfigurationDirectives from './util/parseConfigurationDirectives'
+import { getFileTypeInfoFromFileName, getParserOpts } from './config'
+import * as babylon from "@oigroup/babylon-lightscript"
+
+findBabelConfig = require('find-babel-config')
+
+findConfigEntry(babelConfig, type, pluginName) ->
+  for elem p in (babelConfig[type] or []):
+    if p == pluginName:
+      return {}
+    elif p?[0] == pluginName:
+      return p[1]
 
 // Given a file path, locate the applicable .babelrc and extract the options
 // pertinent to the LightScript plugin.
-locateBabelConfig(filePath) ->
+export locateBabelConfig(filePath) ->
   // Check if filePath is nonsense
+  if (not filePath) or filePath == "unknown" or filePath == "repl":
+    return null
   // Use find-babel-config
-  // Extract compiler options from either preset or plugin if they exist.
-  undefined
+  confData = findBabelConfig.sync(filePath)
+  confData.config
+
+export getPluginConfig(babelConfig, preset = "@oigroup/babel-preset-lightscript", plugin = "@oigroup/babel-plugin-lightscript") ->
+  if not babelConfig: return {}
+  let entry = babelConfig~findConfigEntry("presets", preset)
+  if not entry: now entry = babelConfig~findConfigEntry("plugins", plugin)
+
+  entry or {}
 
 // Obtain compiler configuration information using the same algorithms used
 // by the compiler itself. Loads .babelrc and configuration directives.
-export getCompilerConfiguration(filePath, code) ->
-  undefined
+export getCompilerConfiguration(filePath, code, opts = {}) ->
+  pluginOpts = getPluginConfig(locateBabelConfig(filePath), opts.preset, opts.plugin)
+
+  // Merge special opts
+  for key k, val v in opts:
+    if (k != "preset" and k != "plugin"):
+      pluginOpts[k] = v
+
+  fileTypeInfo = getFileTypeInfoFromFileName(filePath)
+  if fileTypeInfo.isLightScript and (pluginOpts.isLightScript == undefined):
+    pluginOpts.isLightScript = true
+
+  directiveOpts = parseConfigurationDirectives(code)
+  Object.assign(pluginOpts, directiveOpts)
+
+  pluginOpts
 
 // Parse code, including configuration directives, generating parser options
-// the same way the compiler does.
-export parse(code, baseParserOpts, baseCompilerConfig) ->
-  undefined
+// the same way the compiler does. Returns a babylon ast.
+export parse(compilerConfig, code, baseParserOpts) ->
+  parserOpts = getParserOpts(compilerConfig, baseParserOpts)
+  parserOpts.parser(code, parserOpts)
+
+// Let tools have access to babylon if they need it.
+export { babylon }

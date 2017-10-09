@@ -1,5 +1,5 @@
-import * as babylonLightScript from "@oigroup/babylon-lightscript";
-import packageMetadata from "../package.json";
+import * as babylonLightScript from "@oigroup/babylon-lightscript"
+import packageMetadata from "../package.json"
 import parseConfigurationDirectives from './util/parseConfigurationDirectives'
 
 export getMetadata() -> {
@@ -74,9 +74,8 @@ export getMetadata() -> {
   }
 }
 
-getFileTypeInfo(file) ->
-  if not file?.opts?.filename: return { isLightScript: true, isLSX: false }
-  filename = file.opts.filename
+export getFileTypeInfoFromFileName(filename) ->
+  if not filename: return { isLightScript: true, isLSX: false }
 
   if filename.includes(".lsx"): return { isLightScript: true, isLSX: true }
 
@@ -87,6 +86,10 @@ getFileTypeInfo(file) ->
   ): return { isLightScript: true, isLSX: false }
 
   return { isLightScript: false, isLSX: false }
+
+getFileTypeInfo(file) ->
+  if not file?.opts?.filename: return { isLightScript: true, isLSX: false }
+  getFileTypeInfoFromFileName(file.opts.filename)
 
 export getParserOpts(pluginOpts, initialParserOpts) ->
   parserOpts = initialParserOpts or {}
