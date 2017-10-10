@@ -19,10 +19,6 @@ export getMetadata() -> {
       defaultValue: "default"
       stage: "1"
     }
-    whiteblock: {
-      description: "Disable `{` `}` as block delimiters."
-      valueType: "boolean"
-    }
     bangCall: {
       description: "Call functions with paren-free syntax using `!`"
       valueType: "boolean"
@@ -36,12 +32,6 @@ export getMetadata() -> {
     existential: {
       description: "Postfix `?` checks that an expression is not loose-equal to `null`"
       valueType: "boolean"
-    }
-    enhancedComprehension: {
-      description: "Positional comprehensions and `case` syntax for comprehensions"
-      valueType: "boolean"
-      defaultValue: true
-      stage: "0"
     }
     noEnforcedSubscriptIndentation: {
       description: "Do not enforce indentation for subscripts on subsequent lines."
@@ -103,14 +93,8 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
     "objectRestSpread", "asyncFunctions", "asyncGenerators"
     "classProperties", "classConstructorCall", "decorators"
     "dynamicImport", "doExpressions", "seqExprRequiresParen"
-    "noLabeledExpressionStatements", "spreadLoop"
+    "noLabeledExpressionStatements", "spreadLoop", "whiteblockPreferred"
   )
-
-  if pluginOpts?.whiteblock:
-    if pluginOpts.whiteblock != "compat":
-      plugins.push("whiteblockOnly")
-  else:
-    plugins.push("whiteblockPreferred")
 
   if not pluginOpts?.disableJsx: plugins.push("jsx")
   if not pluginOpts?.disableFlow: plugins.push("flow")

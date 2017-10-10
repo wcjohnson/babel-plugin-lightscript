@@ -234,39 +234,6 @@ Labeled expressions increase the number of scenarios where objects and blocks ca
 
 (In terms of the parser unit test suite, this change eliminated around 20 situations where LightScript was parsing vanilla JavaScript incorrectly, as well as four parsing situations labeled as `unfortunate` in the test suite itself.)
 
-## `whiteblock` compiler option added.
-
-### Change
-
-When this option is enabled, only whitespace-delimited syntax can be used for introducing blocks of code. `{ }` are reserved for object literals and some other constructs like `import`/`export`.
-
-For example,
-```js
-f(x) ->
-  y
-// compiles to
-function(x) { return y; }
-// both with and without `whiteblock`
-
-// However,
-f(x) -> {
-  y
-}
-// compiles to
-function(x) { return y; }
-// without `whiteblock`, but with `whiteblock`, the `{`s are interpreted
-// as delimiting an object, so instead you get
-function(x) {
-  return { y }
-}
-```
-
-In the simplest possible terms, `whiteblock` makes the compiler behave as if you are always writing idiomatic whitespaced LightScript code, and so `{}`s will never be used to set off code blocks.
-
-### Rationale
-
-The context-sensitive brace parser is implemented using speculative branching, which can essentially double the amount of work the parser has to do in a lot of situations. This flag will greatly speed up the LightScript parser for those who use whitespace-sensitive syntax, as it is no longer necessary for the parser to speculate when encountering `{ }`.
-
 ## `pipeCall` option eliminated
 
 ### Change
