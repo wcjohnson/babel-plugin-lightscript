@@ -1,1 +1,1 @@
-for (x of generator) x;
+for (const x of generator) x;

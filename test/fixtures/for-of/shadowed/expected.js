@@ -1,2 +1,2 @@
 const e = 1;
-for (e of arr) e;
+for (const e of arr) e;

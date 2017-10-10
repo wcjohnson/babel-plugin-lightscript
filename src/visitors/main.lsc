@@ -219,4 +219,15 @@ export default mainPass(compilerState, programPath): void ->
 
     MatchStatement(path): void ->
       matching.transformMatchStatement(path, opts.__linter)
+
+    ForOfStatement(path): void ->
+      // Auto-const
+      { node } = path; { left } = node
+      if left.type != "VariableDeclaration" and (not left.isNowAssign):
+        path.get("left").replaceWith(
+          t.variableDeclaration(
+            "const"
+            [t.variableDeclarator(left)~atNode(left)]
+          )~atNode(left)
+        )
   })
