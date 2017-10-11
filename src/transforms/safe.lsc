@@ -100,6 +100,24 @@ export transformExistentialExpression(path) ->
   )
 
 export transformSafeSpreadElement(path) ->
+  { node: { argument } } = path
+  // Optimization: if the thing being spread is already an array, elide
+  if argument~isa("ArrayExpression"):
+    path.node._safe = true
+    return
+
+  // Optimization: if spreading an `IfExpr` without an alternate, just add
+  // `[]` as an alternate if consequent is an array
+  if (
+    argument~isa("IfExpression") and
+    argument.consequent~isa("ArrayExpression") and
+    (not argument.alternate)
+  ):
+    argument.alternate = t.arrayExpression()
+    path.get("argument").replaceWith(argument)
+    path.node._safe = true
+    return
+
   { ref, assign, isComplex } = hoistRef(path, path.node.argument, "ref")
 
   cond = t.conditionalExpression(
