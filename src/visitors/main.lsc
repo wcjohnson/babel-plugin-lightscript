@@ -130,15 +130,16 @@ export default mainPass(compilerState, programPath): void ->
         path~transformSafeSpreadElement()
 
     Function: {
-      exit(path): void ->
-        addImplicitReturns(path)
-
-        if path.node.type === "FunctionDeclaration":
+      enter(path): void ->
+        if path.node~isa("FunctionDeclaration"):
           // This is needed because named arrow declarations are new in
           // Lightscript and therefore not acknowledged by Babel's default
           // traversal algorithm for assessing declarations. We must
           // register the declaration by hand here.
           path.getFunctionParent().scope.registerDeclaration(path)
+
+      exit(path): void ->
+        addImplicitReturns(path)
     }
 
     IfExpression(path): void ->
