@@ -1,3 +1,3 @@
 {
-  "throws": "Unexpected token, expected , (5:5)"
+  "throws": "if is a reserved word (5:2)"
 }
