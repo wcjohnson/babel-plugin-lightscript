@@ -15,7 +15,7 @@
     "preversion": "npm run test",
     "prepublish": "npm run clean && npm run build"
   },
-  "homepage": "http://lightscript.org/",
+  "homepage": "http://wcjohnson.github.io/lightscript",
   "license": "MIT",
   "dependencies": {
     "@oigroup/babylon-lightscript": "3.0.0-beta.1",
