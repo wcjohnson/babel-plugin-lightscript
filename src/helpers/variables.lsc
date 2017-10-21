@@ -83,5 +83,12 @@ export checkFalsePositiveReference(refPath) ->
     !parentNode.computed
   elif parentNode.type == "FunctionTypeParam":
     true
+  elif parentNode.type == "ExportSpecifier":
+    // In `export { x } from 'y'`, x is not actually referenced.
+    parent2 = refPath.parentPath.parentPath.node
+    if parent2.type == "ExportNamedDeclaration" and parent2.source:
+      true
+    else:
+      false
   else:
     false
