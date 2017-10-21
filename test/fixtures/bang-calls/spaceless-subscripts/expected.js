@@ -4,5 +4,4 @@ bang().x;
 bang()[x];
 bang()();
 bang()(outerArg1);
-bang()(outerArg1);
 (_bang = bang()) == null ? void 0 : _bang.x;
