@@ -135,7 +135,7 @@ transformMatchCase(mtch, casePath) ->
     test: if c.outerGuard?.type != "MatchElse": mtch~transformMatchTest(casePath)
   }
 
-transformMatchCases(mtch, [casePath, ...rest]) ->
+export transformMatchCases(mtch, [casePath, ...rest]) ->
   c = casePath.node
   { test, consequent } = mtch~transformMatchCase(casePath)
 
@@ -148,7 +148,7 @@ transformMatchCases(mtch, [casePath, ...rest]) ->
     consequent
 
 // Computed values needed in recursive descent.
-getMatchInfo(path, discriminantRef, isLinter) ->
+export getMatchInfo(path, discriminantRef, isLinter) ->
   { node } = path
   {
     path, node, discriminantRef
