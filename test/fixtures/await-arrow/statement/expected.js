@@ -1,3 +1,3 @@
 async function fn() {
-  return fetch();
+  return await fetch();
 }
