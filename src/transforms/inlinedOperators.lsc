@@ -1,0 +1,29 @@
+import t from '../types'
+import { placeAtNode as atNode } from 'ast-loc-utils'
+import { getCompilerState } from '../state/compilerState' // XXX
+
+inlinedOperator = {
+  looseEq: (args) => t.binaryExpression("==", args[0], args[1])
+  looseNotEq: (args) => t.binaryExpression("!=", args[0], args[1])
+  bitwiseNot: (args) => t.unaryExpression("~", args[0])
+  bitwiseAnd: (args) => t.binaryExpression("&", args[0], args[1])
+  bitwiseOr: (args) => t.binaryExpression("|", args[0], args[1])
+  bitwiseXor: (args) => t.binaryExpression("^", args[0], args[1])
+  bitwiseLeftShift: (args) => t.binaryExpression("<<", args[0], args[1])
+  bitwiseRightShift: (args) => t.binaryExpression(">>", args[0], args[1])
+  bitwiseZeroFillRightShift: (args) => t.binaryExpression(">>>", args[0], args[1])
+}
+
+// XXX: factor out to config
+export getInlinedOperatorsEnabled(opts) ->
+  not ((opts.stdlib === false) or (typeof opts.stdlib === "object" && opts.stdlib.lightscript === false))
+
+export maybeReplaceWithInlinedOperator(path, callee, args) ->
+  if(
+    !(getCompilerState().inlinedOperatorsEnabled) or // XXX
+    callee.type !== "Identifier"
+  ): return false
+  name = callee.name
+  if (!inlinedOperator[name] || path.scope.hasBinding(name) ) return false
+  path.replaceWith(inlinedOperator[name](args)~atNode(path.node))
+  return true

@@ -8,5 +8,23 @@ t = require('babel-types')
 patch(t)
 registerLightscriptNodeTypes(t)
 
+// Corrected implementation of babel `isType` that works with node types
+// added by `definePluginType`.
+export isType(nodeType, targetType) ->
+  if nodeType === targetType: return true
+
+  aliases = t.FLIPPED_ALIAS_KEYS[targetType]
+  if aliases:
+    for elem e in aliases: if nodeType === e: return true
+
+  false
+
+export is(type: string, node: Object): boolean ->
+  node and isType(node.type, type)
+
+// Flipped for use with lightscript ~ operator
+export isa(node: Object, type: string): boolean ->
+  node and isType(node.type, type)
+
 export { t as types }
 export default t

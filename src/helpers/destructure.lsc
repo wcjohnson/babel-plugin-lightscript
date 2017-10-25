@@ -1,0 +1,162 @@
+// Tools for dealing with destructuring patterns.
+
+import t, { isa } from '../types'
+import { createAndExpression as And, createOrExpression as Or, createNotExpression as Not } from './logical'
+import { runtime } from '../state/runtime'
+import atNode from 'ast-loc-utils/lib/placeAtNode'
+
+export isDestructuringPattern(node) ->
+  node.type == "ArrayPattern" or node.type == "ObjectPattern"
+
+export matchesDestructuringPattern(ref, pattern) ->
+  match pattern.type:
+    | "ArrayPattern": ref~matchesArrayPattern(pattern)
+    | "ObjectPattern": ref~matchesObjectPattern(pattern)
+
+export isNonEmptyPattern(pattern) ->
+  match pattern.type:
+    | "ArrayPattern": pattern.elements?.length > 0
+    | "ObjectPattern": pattern.properties?.length > 0
+    | else: false
+
+////////// Array pattern matching
+Bracket(array, i, element) ->
+  t.memberExpression(
+    array
+    t.numericLiteral(i)~atNode(element)
+    true
+  )~atNode(element)
+
+HasLength(array, min, max, patternNode) ->
+  t.callExpression(
+    runtime('hasLength')~t.clone()~atNode(patternNode)
+    [
+      array
+      t.numericLiteral(min)~atNode(patternNode)
+      ...if max~looseNotEq(null): t.numericLiteral(max)~atNode(patternNode)
+    ]
+  )~atNode(patternNode)
+
+export matchesArrayPattern(array, arrayPattern) ->
+  elements = arrayPattern.elements
+
+  // Determine min/max length of acceptable array
+  len = elements.length
+  let minLength = 0
+  maxLength = if len and elements[len - 1].type === "RestElement": null else: len
+  for let i = elements.length - 1; i >= 0; i--:
+    if elements[i].type != "AssignmentPattern" and elements[i].type != "RestElement":
+      now minLength = i + 1; break
+
+  And([
+    array~HasLength(minLength, maxLength, arrayPattern)
+    ...for idx i, elem element in elements:
+      if element and element~isDestructuringPattern():
+        array~Bracket(i, element)~matchesDestructuringPattern(element)
+  ])
+
+////////// Object pattern matching
+In(key, obj) ->
+  t.binaryExpression(
+    'in'
+    t.stringLiteral(key.name)~atNode(key)
+    obj
+  )~atNode(key)
+
+Dot(obj, key) ->
+  t.memberExpression(obj, key)~atNode(key)
+
+HasProps(obj, patternNode, props) ->
+  t.callExpression(
+    runtime('hasProps')~t.clone()~atNode(patternNode)
+    [obj, ...props]
+  )~atNode(patternNode)
+
+export matchesObjectPattern(obj, objectPattern) ->
+  { properties } = objectPattern
+  And([
+    // _hasProps(_obj, ...)
+    obj~HasProps(objectPattern, [
+      ...for elem property in properties:
+        if property~isa("ObjectProperty"):
+          { key, value } = property
+          if (not value~isa("AssignmentPattern") and key~isa("Identifier")):
+            t.stringLiteral(key.name)~atNode(key)
+    ])
+
+    // Conditions for nested patterns.
+    // Destructuring patterns get a nested match. Defaulted items get a nested match
+    // only if a default is not present.
+    ...for elem property in properties:
+      if property~isa("ObjectProperty"):
+        { key, value } = property
+        match value:
+          | as {type, left} if type == "AssignmentPattern" and left~isDestructuringPattern():
+            Or(
+              Not(key~In(obj))
+              obj~Dot(key)~matchesDestructuringPattern(left)
+            )
+          | ~isDestructuringPattern():
+            obj~Dot(key)~matchesDestructuringPattern(value)
+  ])
+
+////////// "Restructuring" after a destructure
+export toRestructureExpression(pattern) ->
+  match pattern.type:
+    | "ArrayPattern": pattern~toRestructureExpressionForArrayPattern()
+    | "ObjectPattern": pattern~toRestructureExpressionForObjectPattern()
+
+maybeToRestructureExpression(node) ->
+  if node~isDestructuringPattern(): node~toRestructureExpression() else: node
+
+export toRestructureExpressionForArrayPattern(pattern) ->
+  t.arrayExpression(
+    [...for elem element in pattern.elements:
+      match element:
+        | ~isa("AssignmentPattern"): element.left~maybeToRestructureExpression()
+        | ~isa("RestElement"): t.spreadElement(element.argument)~atNode(element)
+        | ~isDestructuringPattern(): element~toRestructureExpression()
+        | else: element
+    ]
+  )~atNode(pattern)
+
+restructureObjAssignment(assign, defaultKey) ->
+  if assign.left~isDestructuringPattern():
+    t.objectProperty(defaultKey, assign.left~toRestructureExpression())
+  else:
+    t.objectProperty(assign.left, assign.left, false, true)
+
+export toRestructureExpressionForObjectPattern(pattern) ->
+  t.objectExpression(
+    [...for elem property in pattern.properties:
+      match property:
+        | ~isa("RestProperty"):
+          t.spreadProperty(property.argument)~atNode(property)
+        | as {key, value} if value~isDestructuringPattern():
+          t.objectProperty(
+            key
+            value~toRestructureExpression()
+          )~atNode(property)
+        | as {key, value} if value~isa("AssignmentPattern"):
+          value~restructureObjAssignment(key)~atNode(property)
+        | as {value} if value~isa("Identifier"):
+          t.objectProperty(value, value, false, true)~atNode(property)
+    ]
+  )~atNode(pattern)
+
+////////// Generate accessor expressions for destructuring patterns
+export accessors(node, nodeAccessor, accum) ->
+  match node:
+    | ~isa("Identifier"): accum[node.name] = nodeAccessor
+    | ~isa("ArrayPattern"): node~accessorsForArrayPattern(nodeAccessor, accum)
+    | ~isa("ObjectPattern"): node~accessorsForObjectPattern(nodeAccessor, accum)
+    | ~isa("AssignmentPattern"): node.left~accessors(nodeAccessor, accum)
+
+accessorsForArrayPattern(pattern, accessor, accum) ->
+  for idx i, elem element in pattern.elements:
+    element~accessors(t.memberExpression(accessor, t.numericLiteral(i), true), accum)
+
+accessorsForObjectPattern(pattern, accessor, accum) ->
+  for elem { key, value } in pattern.properties:
+    if key~isa("Identifier"):
+      value~accessors(t.memberExpression(accessor, key), accum)

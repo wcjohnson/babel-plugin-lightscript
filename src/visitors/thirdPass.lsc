@@ -1,0 +1,7 @@
+import { maybeTransformSafe } from '../transforms/safe'
+
+export default thirdPass(compiler, programPath): void ->
+  programPath.traverse({
+    CallExpression(path): void -> path~maybeTransformSafe()
+    MemberExpression(path): void -> path~maybeTransformSafe()
+  })

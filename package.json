@@ -1,13 +1,13 @@
 {
   "name": "@oigroup/babel-plugin-lightscript",
-  "version": "2.3.2",
+  "version": "3.0.0-beta.9",
   "description": "Compile LightScript to JavaScript.",
   "main": "lib/index.js",
   "engines": {
     "node": ">=4"
   },
   "scripts": {
-    "test": "npm run build && npm run test:only",
+    "test": "npm run clean && npm run build && npm run test:only",
     "test:only": "mocha test",
     "test:debug": "node --inspect --debug-brk node_modules/.bin/_mocha test",
     "clean": "rimraf lib",
@@ -15,21 +15,21 @@
     "preversion": "npm run test",
     "prepublish": "npm run clean && npm run build"
   },
-  "author": "Alex Rattray <rattray.alex@gmail.com> (http://alexrattray.com/)",
-  "homepage": "http://lightscript.org/",
+  "homepage": "http://wcjohnson.github.io/lightscript",
   "license": "MIT",
   "dependencies": {
-    "@oigroup/babylon-lightscript": "2.3.2",
+    "@oigroup/babylon-lightscript": "3.0.0-beta.9",
     "@oigroup/lightscript-runtime": "^0.1.1",
     "ast-loc-utils": "^1.1.0",
-    "babel-types": "^6.25.0"
+    "babel-types": "^6.26.0",
+    "find-babel-config": "^1.1.0"
   },
   "files": [
     "lib"
   ],
   "devDependencies": {
-    "@oigroup/babel-plugin-lightscript-self-host": "^2.0.0",
-    "@oigroup/lightscript-eslint-self-host": "^2.0.0",
+    "@oigroup/babel-plugin-lightscript-self-host": "^3.0.0",
+    "@oigroup/lightscript-eslint-self-host": "^3.0.0",
     "babel-cli": "^6.24.1",
     "babel-core": "^6.25.0",
     "babel-helper-plugin-test-runner": "^6.24.1",

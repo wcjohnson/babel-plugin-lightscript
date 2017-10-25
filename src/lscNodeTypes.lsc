@@ -49,86 +49,17 @@ export registerLightscriptNodeTypes(t): void ->
       },
     });
 
-  if not t.hasType("ArrayComprehension"):
-    definePluginType("ArrayComprehension", {
-      visitor: ["loop", "elements"],
-      aliases: ["ArrayExpression", "Expression"],
-      fields: {
-        loop: { // compatibility with vanilla lsc comprehensions
-          validate: assertNodeType("ForStatement")
-          optional: true
-        }
-        elements: {
-          validate: chain(
-            assertValueType("array")
-            assertEach(assertNodeType("Expression", "SpreadElement", "Comprehension"))
-          )
-          optional: true
-        }
-      },
-    });
-
-  if not t.hasType("ObjectComprehension"):
-    definePluginType("ObjectComprehension", {
-      visitor: ["loop", "properties"],
-      aliases: ["ObjectExpression", "Expression"],
-      fields: {
-        loop: { // compatibility with vanilla lsc comprehensions
-          validate: assertNodeType("ForStatement")
-          optional: true
-        }
-        properties: {
-          validate: chain(
-            assertValueType("array")
-            assertEach(assertNodeType("ObjectProperty", "SpreadProperty", "Comprehension"))
-          )
-          optional: true
-        }
-      },
-    });
-
-  if not t.hasType("LoopComprehension"):
-    definePluginType("LoopComprehension", {
+  if not t.hasType("SpreadLoop"):
+    definePluginType("SpreadLoop", {
       builder: ["loop"]
       visitor: ["loop"]
-      aliases: ["Comprehension"]
+      aliases: ["Expression"]
       fields: {
         loop: {
           validate: assertNodeType("ForStatement")
         }
       }
     })
-
-  if not t.hasType("CaseComprehension"):
-    definePluginType("CaseComprehension", {
-      visitor: ["conditional"]
-      aliases: ["Comprehension"]
-      fields: {
-        conditional: {
-          validate: assertNodeType("IfStatement")
-        }
-      }
-    })
-
-  if not t.hasType("TildeCallExpression"):
-    definePluginType("TildeCallExpression", {
-      visitor: ["left", "right", "arguments"],
-      aliases: ["CallExpression", "Expression"],
-      fields: {
-        left: {
-          validate: assertNodeType("Expression"),
-        },
-        right: {
-          validate: assertOneOf("Identifier", "MemberExpression"),
-        },
-        arguments: {
-          validate: chain(
-            assertValueType("array"),
-            assertEach(assertNodeType("Expression", "SpreadElement"))
-          ),
-        },
-      },
-    });
 
   if not t.hasType("NamedArrowDeclaration"):
     definePluginType("NamedArrowDeclaration", {
@@ -250,12 +181,6 @@ export registerLightscriptNodeTypes(t): void ->
       }
     });
 
-  if not t.hasType("SafeMemberExpression"):
-    definePluginType("SafeMemberExpression", {
-      inherits: "MemberExpression",
-      aliases: ["MemberExpression", "Expression", "LVal"],
-    });
-
   if not t.hasType("ExistentialExpression"):
     definePluginType("ExistentialExpression", {
       builder: ["argument"],
@@ -360,4 +285,38 @@ export registerLightscriptNodeTypes(t): void ->
           validate: assertNodeType("Expression"),
         },
       },
+    });
+
+  if not t.hasType("CatchExpression"):
+    definePluginType("CatchExpression", {
+      builder: ["expression", "cases"],
+      visitor: ["expression", "cases"],
+      aliases: ["Expression"],
+      fields: {
+        expression: {
+          validate: assertNodeType("Expression")
+        },
+        cases: {
+          validate: chain(assertValueType("array"), assertEach(assertNodeType("CatchCase")))
+        }
+      }
+    });
+
+  if not t.hasType("CatchCase"):
+    definePluginType("CatchCase", {
+      builder: ["atoms", "binding", "consequent"],
+      visitor: ["atoms", "binding", "consequent"],
+      fields: {
+        atoms: {
+          validate: chain(assertValueType("array"), assertEach(assertNodeType("Expression")))
+          optional: true
+        }
+        binding: {
+          validate: assertNodeType("Identifier", "ArrayPattern", "ObjectPattern")
+          optional: true
+        }
+        consequent: {
+          validate: assertNodeType("Expression", "Statement")
+        }
+      }
     });

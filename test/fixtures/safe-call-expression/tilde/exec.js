@@ -3,4 +3,4 @@ g() -> f
 h = null
 
 assert(g?()~f?() === f)
-assert(g~h?() === null)
+assert(g~h?() === undefined)

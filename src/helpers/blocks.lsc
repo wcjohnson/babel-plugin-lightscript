@@ -1,0 +1,142 @@
+// Helpers for transforming blocks of code.
+import t, { isa } from '../types'
+
+import { getLoc, buildAtLoc, getSurroundingLoc, placeAtLoc as atLoc, placeAtNode as atNode } from 'ast-loc-utils'
+
+// c/p https://github.com/babel/babel/blob/master/packages/babel-types/src/converters.js
+gatherSequenceExpressions(nodes: Array<Object>): ?Object ->
+  exprs = []
+  let ensureLastNull = true
+
+  // TODO: comprehension
+  for elem node in nodes:
+    now ensureLastNull = false
+
+    match node:
+      | ~isa("Expression"):
+        exprs.push(node)
+      | ~isa("ExpressionStatement"):
+        exprs.push(node.expression)
+      | ~isa("IfStatement") as { consequent, alternate, test }:
+        cq = consequent // XXX: https://github.com/lightscript/lightscript/issues/39
+        alt = alternate // XXX: https://github.com/lightscript/lightscript/issues/39
+        if (!cq) return
+        nextCq = gatherSequenceExpressions([cq])
+        nextAlt = alt ? gatherSequenceExpressions([alt]) : t.unaryExpression("void", t.numericLiteral(0)~atNode(cq), true)~atNode(cq)
+        if (!nextCq || !nextAlt) return
+
+        loc = getSurroundingLoc([test, nextCq, nextAlt])
+        exprs.push(t.conditionalExpression(test, nextCq, nextAlt)~atLoc(loc))
+      | ~isa("BlockStatement"):
+        body = gatherSequenceExpressions(node.body)
+        if (!body) return
+        exprs.push(body)
+      | ~isa("EmptyStatement"):
+        now ensureLastNull = true
+      | else:
+        return
+
+  if ensureLastNull:
+    exprs.push(t.nullLiteral()~atNode(exprs[exprs.length - 1]))
+
+  // TODO: sourcemap
+  if exprs.length == 1: exprs[0] else: t.sequenceExpression(exprs)
+
+toSequenceExpression(nodes: Array<Object>): ?Object ->
+  if (!nodes || !nodes.length) return
+  gatherSequenceExpressions(nodes)
+
+// c/p https://github.com/babel/babel/blob/1e55653ac173c3a59f403a7b5269cf6d143d32d9/packages/babel-traverse/src/path/replacement.js
+export statementsToExpression(path, nodes: Array<Object>) ->
+  path.resync()
+
+  seqExpr = toSequenceExpression(nodes);
+
+  if seqExpr~isa("SequenceExpression"):
+    exprs = seqExpr.expressions
+    if exprs.length === 1: exprs[0] else: seqExpr
+  elif seqExpr:
+    seqExpr
+  else:
+    iife(nodes)
+
+// Wrap a node in a BlockStatement container.
+export toBlockStatement(body) ->
+  bodyLoc = getLoc(body)
+  match body:
+    | ~isa("BlockStatement"):
+      body
+    | ~isa("Statement"):
+      t.blockStatement([body])~atLoc(bodyLoc)
+    | else:
+      t.blockStatement([
+        t.expressionStatement(body)~atLoc(bodyLoc)
+      ])~atLoc(bodyLoc)
+
+// Wrap expressions in an ExpressionStatement container.
+export toStatement(body) ->
+  match body:
+    | ~isa("Expression"):
+      t.expressionStatement(body)~atNode(body)
+    | else:
+      body
+
+// Convert a node to appropriate form to be a Function body.
+export toFunctionBody(body) ->
+  match body:
+    | ~isa("Expression"): body
+    | else: body~toBlockStatement()
+
+// Transform the AST so that the function at the given path has a block body.
+export ensureBlockBody(path) ->
+  if not path.node.body~isa("BlockStatement"):
+    path.get("body").replaceWith(
+      buildAtLoc(getLoc(path.node.body), t.blockStatement, [path.node.body])
+    )
+
+// Obtain an expression equivalent to the block at the given path. In the worst
+// case, the block is wrapped in an IIFE.
+export blockToExpression(path) ->
+  node = path.node
+  match node:
+    | ~isa("BlockStatement"):
+      statementsToExpression(path, path.node.body)
+    | ~isa("FunctionDeclaration"):
+      // Special case: the parser promotes a block consisting of a single declaration
+      // from ExprStatement(FunctionExpr) to FunctionDeclaration. Convert back to
+      // expression here.
+      nextNode = t.clone(node)
+      if nextNode.type === "NamedArrowDeclaration":
+        nextNode.type = "NamedArrowExpression";
+      else:
+        nextNode.type = "FunctionExpression";
+      nextNode
+    | ~isa("ExpressionStatement"):
+      node.expression
+    | else:
+      node
+
+// Locate the path that determines the variable scope at the given path.
+export getScopeParent(path) ->
+  path.findParent((path) ->
+    path.isFunction() or path.isBlockStatement() or path.isProgram()
+  )
+
+export iife(body, async = false) ->
+  actualBody = if Array.isArray(body):
+    bodyLoc = getSurroundingLoc(body)
+    t.blockStatement(body)~atLoc(bodyLoc)
+  else:
+    body~toBlockStatement()
+
+  loc = actualBody~getLoc()
+
+  t.callExpression(
+    t.arrowFunctionExpression(
+      []
+      actualBody
+      async
+    )~atLoc(loc)
+    []
+  )~atLoc(loc)
+

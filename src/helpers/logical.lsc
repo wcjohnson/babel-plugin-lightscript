@@ -1,0 +1,36 @@
+import t from '../types'
+import getSurroundingLoc from 'ast-loc-utils/lib/getSurroundingLoc'
+import atLoc from 'ast-loc-utils/lib/placeAtLoc'
+import atNode from 'ast-loc-utils/lib/placeAtNode'
+{ isArray } = Array
+
+export createLogicalExpression(operator, ...conditions) ->
+  if conditions.length == 1 and conditions[0]~isArray():
+    now conditions = conditions[0]
+
+  match conditions:
+    | with []:
+      if operator == "&&": t.booleanLiteral(true) else: t.booleanLiteral(false)
+    | with [oneCondition]:
+      oneCondition
+    | else:
+      t.logicalExpression(
+        operator
+        conditions[0]
+        createLogicalExpression(operator, conditions.slice(1))
+      )~atLoc(getSurroundingLoc(conditions))
+
+export createAndExpression(...conditions) ->
+  if conditions.length == 1 and conditions[0]~isArray():
+    now conditions = conditions[0]
+
+  createLogicalExpression("&&", conditions)
+
+export createOrExpression(...conditions) ->
+  if conditions.length == 1 and conditions[0]~isArray():
+    now conditions = conditions[0]
+
+  createLogicalExpression("||", conditions)
+
+export createNotExpression(condition) ->
+  t.unaryExpression("!", condition)~atNode(condition)
