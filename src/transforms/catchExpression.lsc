@@ -1,4 +1,5 @@
 import t, { isa } from '../types'
+import { transformTails } from '../helpers/tails'
 
 import {
   getLoc, placeAtLoc as atLoc, placeAtNode as atNode,
@@ -8,11 +9,39 @@ import {
 
 import { getMatchInfo, transformMatchCases } from './match'
 
+transformVarDeclCatchExpression(path, catchExprPath, isLinter): void ->
+  { node } = catchExprPath
+
+  resRef = path.scope.generateUidIdentifier("val")
+  errRef = path.scope.generateUidIdentifier("err")~atLoc(getLoc(node)~span(1))
+  catchBody = getMatchInfo(catchExprPath, errRef, isLinter)~transformMatchCases(catchExprPath.get("cases"))
+
+  path.insertBefore! t.variableDeclaration("let", [t.variableDeclarator(resRef)])
+  path.insertBefore! t.tryStatement(
+    // try { _val = expr }
+    t.blockStatement([
+      t.expressionStatement(t.assignmentExpression("=", resRef, node.expression))
+    ])
+    // catch (err) { ... }
+    t.catchClause(
+      errRef
+      t.blockStatement([catchBody])
+    )
+  )
+  // x = _val
+  declaratorPath = path.get("declarations.0")
+  declaratorPath.node.init = resRef
+  // Transform tails in the catch-clause to assignments
+  tryPath = path.getPrevSibling()
+  transformTails(tryPath.get("handler.body"), false, false, (node) ->
+    t.assignmentExpression("=", resRef, node)~atNode(node)
+  )
+
 transformPessimizedCatchExpression(path, isLinter): void ->
   { node } = path
 
-  argRef = path.scope.generateUidIdentifier("err")~atLoc(getLoc(node)~span(1))
-  catchBody = getMatchInfo(path, argRef, isLinter)~transformMatchCases(path.get("cases"))
+  errRef = path.scope.generateUidIdentifier("err")~atLoc(getLoc(node)~span(1))
+  catchBody = getMatchInfo(path, errRef, isLinter)~transformMatchCases(path.get("cases"))
 
   iife = t.callExpression(
     t.arrowFunctionExpression(
@@ -23,7 +52,7 @@ transformPessimizedCatchExpression(path, isLinter): void ->
             t.returnStatement(node.expression)
           ])
           t.catchClause(
-            argRef
+            errRef
             t.blockStatement([catchBody])
           )
         )
@@ -35,6 +64,17 @@ transformPessimizedCatchExpression(path, isLinter): void ->
 
   path.replaceWith(iife)
 
+isVarDeclCatchExpr(path) ->
+  path.parent~isa("VariableDeclarator")
+  and path.parentPath.parent.declarations.length == 1
+  and path.parentPath.parentPath.listKey == "body"
+
 export transformCatchExpression(path, isLinter): void ->
-  transformPessimizedCatchExpression(path, isLinter)
+  console.log(path.parent)
+  console.log(path.parentPath.parent)
+  console.log(path.parentPath.parentPath.parent)
+  if path~isVarDeclCatchExpr!:
+    transformVarDeclCatchExpression(path.parentPath.parentPath, path, isLinter)
+  else:
+    transformPessimizedCatchExpression(path, isLinter)
 
