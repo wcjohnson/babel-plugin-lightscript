@@ -70,9 +70,6 @@ isVarDeclCatchExpr(path) ->
   and path.parentPath.parentPath.listKey == "body"
 
 export transformCatchExpression(path, isLinter): void ->
-  console.log(path.parent)
-  console.log(path.parentPath.parent)
-  console.log(path.parentPath.parentPath.parent)
   if path~isVarDeclCatchExpr!:
     transformVarDeclCatchExpression(path.parentPath.parentPath, path, isLinter)
   else:
