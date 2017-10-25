@@ -286,3 +286,37 @@ export registerLightscriptNodeTypes(t): void ->
         },
       },
     });
+
+  if not t.hasType("CatchExpression"):
+    definePluginType("CatchExpression", {
+      builder: ["expression", "cases"],
+      visitor: ["expression", "cases"],
+      aliases: ["Expression"],
+      fields: {
+        expression: {
+          validate: assertNodeType("Expression")
+        },
+        cases: {
+          validate: chain(assertValueType("array"), assertEach(assertNodeType("CatchCase")))
+        }
+      }
+    });
+
+  if not t.hasType("CatchCase"):
+    definePluginType("CatchCase", {
+      builder: ["atoms", "binding", "consequent"],
+      visitor: ["atoms", "binding", "consequent"],
+      fields: {
+        atoms: {
+          validate: chain(assertValueType("array"), assertEach(assertNodeType("Expression")))
+          optional: true
+        }
+        binding: {
+          validate: assertNodeType("Identifier", "ArrayPattern", "ObjectPattern")
+          optional: true
+        }
+        consequent: {
+          validate: assertNodeType("Expression", "Statement")
+        }
+      }
+    });

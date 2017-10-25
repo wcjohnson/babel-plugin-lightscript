@@ -1,0 +1,40 @@
+import t, { isa } from '../types'
+
+import {
+  getLoc, placeAtLoc as atLoc, placeAtNode as atNode,
+  getSurroundingLoc, span, traverse,
+  placeTreeAtLocWhenUnplaced as allAtLoc
+} from 'ast-loc-utils'
+
+import { getMatchInfo, transformMatchCases } from './match'
+
+transformPessimizedCatchExpression(path, isLinter): void ->
+  { node } = path
+
+  argRef = path.scope.generateUidIdentifier("err")~atLoc(getLoc(node)~span(1))
+  catchBody = getMatchInfo(path, argRef, isLinter)~transformMatchCases(path.get("cases"))
+
+  iife = t.callExpression(
+    t.arrowFunctionExpression(
+      []
+      t.blockStatement([
+        t.tryStatement(
+          t.blockStatement([
+            t.returnStatement(node.expression)
+          ])
+          t.catchClause(
+            argRef
+            t.blockStatement([catchBody])
+          )
+        )
+      ])
+      node.expression~isa("AwaitExpression") // async
+    )
+    []
+  )
+
+  path.replaceWith(iife)
+
+export transformCatchExpression(path, isLinter): void ->
+  transformPessimizedCatchExpression(path, isLinter)
+
