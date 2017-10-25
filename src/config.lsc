@@ -20,9 +20,9 @@ export getMetadata() -> {
       stage: "1"
     }
     catchExpression: {
-      description: "Catch and transform errors while evaluating an expression."
+      description: "Catch and transform errors while evaluating an expression. (HIGHLY EXPERIMENTAL. DO NOT USE IN PRODUCTION.)"
       valueType: "boolean"
-      stage: "0"
+      stage: "-50"
     }
     bangCall: {
       description: "Call functions with paren-free syntax using `!`"
