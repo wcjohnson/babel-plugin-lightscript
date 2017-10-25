@@ -1,0 +1,229 @@
+import t, { isa } from '../types'
+import { transformTails } from '../helpers/tails'
+import { toStatement } from '../helpers/blocks'
+
+import { getLoc, placeAtLoc as atLoc, placeAtNode as atNode, getSurroundingLoc, span, placeTreeAtLocWhenUnplaced as allAtLoc } from 'ast-loc-utils'
+
+export isSpreadLoopContainer(node) ->
+  (node~isa("SpreadElement") or node~isa("SpreadProperty")) and
+  node.argument~isa("SpreadLoop")
+
+// prevent generated spreadexpr from being further transformed
+safe(node) ->
+  node._safe = true
+  node
+
+validateComprehensionBody(path) ->
+  path.traverse({
+    noScope: true
+
+    Function(path): void -> path.skip()
+
+    AwaitExpression(awaitPath) ->
+      throw awaitPath.buildCodeFrameError(
+        "`await` is not allowed within Comprehensions; " +
+        "instead, await the Comprehension."
+      )
+
+    YieldExpression(yieldPath) ->
+      throw yieldPath.buildCodeFrameError("`yield` is not allowed within Comprehensions.")
+
+    ReturnStatement(returnPath) ->
+      throw returnPath.buildCodeFrameError("`return` is not allowed within Comprehensions.");
+  })
+
+iife(body, id, initializer) ->
+  loc = body~getSurroundingLoc()
+
+  body.unshift(t.variableDeclaration("const",
+    [t.variableDeclarator(id, initializer)~atNode(id)]
+  )~atNode(id))
+  body.push(t.returnStatement(id)~atLoc(loc~span(-1)))
+
+  t.callExpression(
+    t.arrowFunctionExpression([], t.blockStatement(body)~atLoc(loc))~atLoc(loc)
+    []
+  )~atLoc(loc)
+
+isSimpleObject(objExpr) ->
+  objExpr.properties?.length == 1 and
+  objExpr.properties[0].type == "ObjectProperty" and
+  (not objExpr.properties[0].decorators?.length)
+
+isSimpleArray(arrExpr) ->
+  arrExpr.elements?.length == 1 and
+  arrExpr.elements[0].type != "SpreadElement"
+
+transformJSXComprehensionTails(loopPath, ref) ->
+  bodyPath = loopPath.get("body")
+  validateComprehensionBody(bodyPath)
+  let foundOne = false
+  transformTails(
+    bodyPath
+    true
+    false
+    (expr) ->
+      now foundOne = true
+      t.callExpression(
+        t.memberExpression(ref, t.identifier("push")~atNode(expr))~atNode(expr)
+        [expr]
+      )~atNode(expr)
+  )
+
+  if not foundOne:
+    throw loopPath.buildCodeFrameError("Spread loops must end with an expression.")
+
+export transformJSXComprehension(exprPath): void ->
+  { node } = exprPath
+  loopPath = exprPath.get("loop")
+  ref = exprPath.scope.generateUidIdentifier("arr")~t.clone()~atLoc(getLoc(node)~span(1))
+  initializer = t.arrayExpression()~atLoc(getLoc(node)~span(1))
+  transformJSXComprehensionTails(loopPath, ref)
+  exprPath.replaceWith(
+    iife(
+      [loopPath.node]
+      ref
+      initializer
+    )
+  )
+
+export maybeTransformJSXExpressionWithSpreadLoop(path) ->
+  if path.node.expression~isa("SpreadLoop"):
+    transformJSXComprehension(path.get("expression"))
+    true
+  else:
+    false
+
+transformObjectComprehensionTails(loopPath, id): void ->
+  bodyPath = loopPath.get("body")
+  validateComprehensionBody(bodyPath)
+  let foundOne = false
+  transformTails(
+    bodyPath
+    true
+    false
+    (expr) ->
+      now foundOne = true
+
+      if expr~isSimpleObject():
+        // Simple object case: { [k]: v } --> obj[k] = v
+        { properties: [prop] } = expr
+        t.assignmentExpression("=",
+          t.memberExpression(id, prop.key, prop.computed or (not prop.key~isa("Identifier")))~atNode(expr),
+          prop.value
+        )~atNode(expr)
+      else:
+        // Complex object case: { ... } -> Object.assign(obj, { ... })
+        t.callExpression(
+          t.memberExpression(
+            t.identifier("Object")
+            t.identifier("assign")
+          )~allAtLoc(expr~getLoc())
+          [id, expr]
+        )~atNode(expr)
+  )
+
+  if not foundOne:
+    throw bodyPath.buildCodeFrameError("Spread loops must end with an expression.")
+
+transformObjectWithSpreadLoops(path, spreadLoopPaths, plainProps): void ->
+  { node } = path
+  ref = path.scope.generateUidIdentifier("obj")~t.clone()~atLoc(getLoc(node)~span(1))
+  path.replaceWith! iife(
+    [...for elem p in spreadLoopPaths:
+      transformObjectComprehensionTails(p, ref)
+      p.node
+    ]
+    ref
+    t.objectExpression(plainProps)~atLoc(plainProps~getSurroundingLoc!)
+  )
+  undefined
+
+export maybeTransformObjectWithSpreadLoops(path) ->
+  { node } = path
+  { properties } = node
+
+  plainProps = []; spreadLoopPaths = []
+  for idx i, elem p in properties:
+    if p~isSpreadLoopContainer():
+      spreadLoopPaths.push(path.get(`properties.${i}.argument.loop`))
+    else:
+      plainProps.push(p)
+
+  if spreadLoopPaths.length == 0: return false
+
+  transformObjectWithSpreadLoops(path, spreadLoopPaths, plainProps)
+  true
+
+transformArrayComprehensionTails(loopPath, ref): void ->
+  bodyPath = loopPath.get("body")
+  validateComprehensionBody(bodyPath)
+  let foundOne = false
+  transformTails(
+    bodyPath
+    true
+    false
+    (expr) ->
+      now foundOne = true
+      t.callExpression(
+        t.memberExpression(ref, t.identifier("push")~atNode(expr))~atNode(expr)
+        if expr~isSimpleArray!:
+          // Shortcut for simple array exprs: just array.push the single entry.
+          [expr.elements[0]]
+        else:
+          // ES6-spread the tail array onto the base array
+          [t.spreadElement(expr)~atNode(expr)~safe!]
+      )~atNode(expr)
+  )
+
+  if not foundOne:
+    throw loopPath.buildCodeFrameError("Spread loops must end with an expression.")
+
+pushBundle(stmts, ref, bundle) ->
+  if not bundle.length: return
+  loc = getSurroundingLoc(bundle)
+  // _ref.push(bundle...)
+  stmts.push(
+    t.callExpression(
+      t.memberExpression(ref, t.identifier("push")~atLoc(loc))~atLoc(loc)
+      bundle
+    )~atLoc(loc)~toStatement!
+  )
+
+transformArrayWithSpreadLoops(path) ->
+  { node } = path; { elements } = node
+  ref = path.scope.generateUidIdentifier("arr")~t.clone()~atLoc(getLoc(node)~span(1))
+
+  let i = 0, len = elements.length, stmts = [], bundle = [], first = true, initializer
+  while i < len:
+    element = elements[i]
+    if element~isSpreadLoopContainer():
+      if first:
+        now initializer = bundle
+        now first = false
+      else:
+        stmts~pushBundle(ref, bundle)
+      now bundle = []
+      loopPath = path.get(`elements.${i}.argument.loop`)
+      transformArrayComprehensionTails(loopPath, ref)
+      stmts.push(loopPath.node)
+    else:
+      bundle.push(element)
+
+    i++
+  stmts~pushBundle(ref, bundle)
+
+  path.replaceWith! iife(
+    stmts
+    ref
+    t.arrayExpression(initializer)~atLoc(initializer~getSurroundingLoc!)
+  )
+
+export maybeTransformArrayWithSpreadLoops(path) ->
+  { node } = path; { elements } = node
+  for elem e in elements:
+    if e~isSpreadLoopContainer():
+      transformArrayWithSpreadLoops(path)
+      return true
+
+  false

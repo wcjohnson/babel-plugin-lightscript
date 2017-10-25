@@ -1,1 +1,1 @@
-const x = a ? b ? c : null : null;
+const x = a ? b ? c : void 0 : void 0;

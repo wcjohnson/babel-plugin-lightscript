@@ -1,0 +1,34 @@
+// Try to find the Babel options for a Babel plugin.
+//
+// This is made way harder than it sounds by Babel's internal architecture.
+// When `manipulateOptions` hook is being run, Babel doesn't specify the options
+// of the individual plugin -- only the global Babel configuration. But we need
+// the local options for the LightScript plugin in order to manipulate the parser
+// flags.
+//
+// The cherry on top is that in order to GET the local options for the lightscript
+// plugin, you have to find the lightscript plugin in the Babel plugin list, but
+// Babel performs internal transformations on the plugin data structure that
+// make it impossible to determine post hoc which one is the Lightscript plugin.
+// Except for one loophole: the `manipulateOptions` function itself is not mutated
+// by Babel.
+//
+// So, basic strategy is to iterate all the Babel plugins, find the one whose
+// `manipulateOptions` function matches ours, then return the options for
+// that plugin. Phew.
+
+isPlugin(a, b) ->
+  a.manipulateOptions == b.manipulateOptions
+
+export default findBabelOptionsForPlugin(opts, targetPlugin) ->
+  plugins = opts?.plugins
+  if not plugins: return {}
+
+  for elem plugin in plugins:
+    if Array.isArray(plugin):
+      // babel plugin opts are in the second elt of the array describing the plugin
+      if targetPlugin~isPlugin(plugin[0]): return plugin[1] or {}
+    else:
+      if targetPlugin~isPlugin(plugin): return {}
+
+  {}

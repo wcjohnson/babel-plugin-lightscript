@@ -1,0 +1,94 @@
+import t, { isa } from '../types'
+
+import getLoc from "ast-loc-utils/lib/getLoc"
+import atLoc from 'ast-loc-utils/lib/placeAtLoc'
+import span from 'ast-loc-utils/lib/span'
+
+export isSimple(refTarget) ->
+  refTarget~isa("Identifier") or
+  refTarget~isa("Super") or
+  refTarget~isa("ThisExpression")
+
+// Memoize an expression with a variable to avoid duplication of side effects.
+export memoize(path, target, varName = "ref", isDeclared = true) ->
+  if target~isSimple():
+    { ref: target, assign: target, declarator: null, isComplex: false }
+  else:
+    loc = getLoc(target)~span(1)
+
+    ref = if isDeclared:
+      path.scope.generateDeclaredUidIdentifier(varName)~atLoc(loc)
+    else:
+      path.scope.generateUidIdentifier(varName)~atLoc(loc)
+
+    {
+      ref
+      isComplex: true
+      assign: t.assignmentExpression("=", ref, target)~atLoc(loc)
+      declarator: t.variableDeclarator(ref, target)~atLoc(loc)
+    }
+
+// Hoist a ref up to the enclosing scope if needed.
+export hoistRef(path, refTarget, varName = "ref") ->
+  memoize(path, refTarget, varName, true)
+
+// Create a variable declarator for a ref in the enclosing scope, if
+// needed
+export undeclaredRef(path, refTarget, varName = "ref") ->
+  memoize(path, refTarget, varName, false)
+
+// Get all identifiers in the given `VariableDeclaration` that would shadow
+// identifiers defined in a higher scope.
+export getShadowingIdentifiers(declarationPath) ->
+  if not declarationPath.scope.parent: return []
+
+  [...for idx i in declarationPath.node.declarations:
+    for val id in declarationPath.get(`declarations.${i}`).getBindingIdentifiers():
+      if declarationPath.scope.parent.hasBinding(id.name): id
+  ]
+
+// Check if a path contains a reference to an identifier
+export containsReferencedIdentifier(path, identifier) ->
+  let result = false
+  { name: identifierName } = identifier
+
+  path.traverse({
+    ReferencedIdentifier(refPath): void ->
+      if checkFalsePositiveReference(refPath):
+        refPath.skip()
+      elif refPath.node.name == identifierName:
+        now result = true
+        refPath.stop()
+  })
+
+  result
+
+// Insert a prior declaration and register it as a binding with Babel
+export insertDeclarationBefore(path, id, init, kind, loc) ->
+  path.insertBefore(
+    t.variableDeclaration(kind, [
+      t.variableDeclarator(id, init)~atLoc(loc)
+    ])~atLoc(loc)
+  )
+  path.scope.registerBinding(kind, path.getSibling(path.key - 1))
+
+// Workaround a babel bug with Flow types
+// XXX: there are probably uncovered cases here. test again with babel 7 later
+export checkFalsePositiveReference(refPath) ->
+  { node } = refPath
+  parentNode = refPath.parentPath.node
+  if not parentNode: return false
+
+  if parentNode.type == "ObjectTypeProperty" and parentNode.key == node:
+    !parentNode.computed
+  elif parentNode.type == "FunctionTypeParam":
+    true
+  elif parentNode.type == "ExportSpecifier":
+    // In `export { x } from 'y'`, x is not actually referenced.
+    parent2 = refPath.parentPath.parentPath.node
+    if parent2.type == "ExportNamedDeclaration" and parent2.source:
+      true
+    else:
+      false
+  else:
+    false

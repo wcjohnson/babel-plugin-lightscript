@@ -1,0 +1,238 @@
+import t, { is, isa } from "../types"
+
+import { placeAtNode as atNode, placeTreeAtLocWhenUnplaced as allAtLoc, getLoc, placeAtLoc as atLoc, getSurroundingLoc } from 'ast-loc-utils'
+
+import {
+  addImplicitReturns, replaceWithPlainFunction, replaceWithArrowFunction,
+  replaceWithBoundFunction
+} from "../helpers/functions"
+import { blockToExpression, iife } from "../helpers/blocks"
+import { getShadowingIdentifiers, checkFalsePositiveReference } from "../helpers/variables"
+
+import { ensureConstructor, bindMethodsInConstructor, bindMethods } from "../transforms/classes"
+import * as matching from "../transforms/match"
+import { maybeTransformArrayWithSpreadLoops, maybeTransformObjectWithSpreadLoops, maybeTransformJSXExpressionWithSpreadLoop } from "../transforms/comprehension"
+import { transformExistentialExpression, transformSafeSpreadElement } from "../transforms/safe"
+import { maybeReplaceWithInlinedOperator } from "../transforms/inlinedOperators"
+import { transformForInArrayStatement, transformForInObjectStatement, lintForInArrayStatement, lintForInObjectStatement } from "../transforms/for"
+import { transformCatchExpression } from "../transforms/catchExpression"
+
+import { markIdentifier } from "../state/stdlib"
+
+// Main AST visitor
+export default mainPass(compilerState, programPath): void ->
+  { opts } = compilerState
+  // Main LSC transforms
+  programPath.traverse({
+    ForInArrayStatement(path): void ->
+      // TODO: push the linter conditional down into the transform
+      // and get linter status from compilerState
+      if opts.__linter:
+        lintForInArrayStatement(path)
+      else:
+        transformForInArrayStatement(path)
+
+    ForInObjectStatement(path): void ->
+      // TODO: push the linter conditional down into the transform
+      // and get linter status from compilerState
+      if opts.__linter:
+        lintForInObjectStatement(path)
+      else:
+        transformForInObjectStatement(path);
+
+    CallExpression(path): void ->
+      { node } = path
+      maybeReplaceWithInlinedOperator(path, node.callee, node.arguments)
+
+    NamedArrowFunction(path): void ->
+      if (path.node.skinny):
+        replaceWithPlainFunction(path)
+      elif (path.node.generator):
+        // there are no arrow-generators in ES6, so can't compile to arrow
+        replaceWithBoundFunction(path)
+      else:
+        replaceWithArrowFunction(path)
+
+    NamedArrowMemberExpression(path): void ->
+      let object = path.node.object
+      let node = path.node
+      delete node.object
+      node.type = "NamedArrowExpression"
+
+      if (!node.skinny) {
+        node.skinny = true;  // binding here, don't turn into arrow
+        now node = t.callExpression(
+          t.memberExpression(node, t.identifier("bind")),
+          [object]
+        )~allAtLoc(getLoc(object))
+      }
+
+      path.replaceWith(t.assignmentExpression("=",
+        t.memberExpression(object, path.node.id)~atLoc(getSurroundingLoc([object, path.node.id]))
+        node
+      )~atNode(node))
+
+    ArrowFunctionExpression(path): void ->
+      if (path.node.skinny):
+        replaceWithPlainFunction(path)
+      elif (path.node.generator):
+        replaceWithBoundFunction(path)
+
+    ClassBody(path): void ->
+      let fatArrows = [], fatStaticArrows = [], constructorPath;
+      path.node.body.forEach((method, i) => {
+        if (!t.isMethod(method)) return;
+
+        if (method.kind === "constructor") {
+          now constructorPath = path.get(`body.${i}.body`);
+        } else if (method.static && method.skinny === false) {
+          fatStaticArrows.push(method.key);
+          method.skinny = true; // prevent infinite recursion
+        } else if (method.skinny === false) {
+          fatArrows.push(method.key);
+          method.skinny = true; // prevent infinite recursion
+        }
+      });
+
+      let maybeAddSuper = path.parentPath.node.superClass && constructorPath;
+      if (fatArrows.length || maybeAddSuper) {
+        now constructorPath = ensureConstructor(path.parentPath, constructorPath, true);
+      }
+
+      if (fatArrows.length) {
+        bindMethodsInConstructor(path.parentPath, constructorPath, fatArrows);
+      }
+
+      if (fatStaticArrows.length) {
+        bindMethods(path.parentPath, fatStaticArrows);
+      }
+
+    JSXExpressionContainer(path): void ->
+      path~maybeTransformJSXExpressionWithSpreadLoop()
+
+    ArrayExpression(path): void ->
+      path~maybeTransformArrayWithSpreadLoops()
+
+    ObjectExpression(path): void ->
+      fatArrowKeys = [
+        ...for elem prop in path.node.properties:
+          if prop~isa("Method") and prop.skinny == false:
+            prop.skinny = true // prevent recursion
+            prop.key
+      ]
+
+      // ObjectExpression may get replaced with an IIFE here...
+      if path~maybeTransformObjectWithSpreadLoops(): path.resync()
+
+      if fatArrowKeys.length: bindMethods(path, fatArrowKeys)
+
+    SpreadElement(path): void ->
+      if not path.node._safe: // prevent infinite recursion
+        path~transformSafeSpreadElement()
+
+    Function: {
+      enter(path): void ->
+        if path.node~isa("FunctionDeclaration"):
+          // This is needed because named arrow declarations are new in
+          // Lightscript and therefore not acknowledged by Babel's default
+          // traversal algorithm for assessing declarations. We must
+          // register the declaration by hand here.
+          path.getFunctionParent().scope.registerDeclaration(path)
+
+      exit(path): void ->
+        addImplicitReturns(path)
+    }
+
+    IfExpression(path): void ->
+      // TODO: better source mapping here -- place implicit null at end of consequent?
+      consequent = blockToExpression(path.get("consequent"));
+      undef = path.scope.buildUndefinedNode();
+
+      alternate = if path.node.alternate:
+        blockToExpression(path.get("alternate"));
+      else:
+        undef~atNode(path.node)
+
+      path.replaceWith(t.conditionalExpression(path.node.test, consequent, alternate)~atNode(path.node));
+
+    AssignmentExpression(path): void ->
+      if (path.node.operator === "<-" || path.node.operator === "<!-"):
+        path.node.operator = "="
+
+      if is("MemberExpression", path.node.left): return
+
+      if path.node.isNowAssign === false:
+        throw path.buildCodeFrameError(
+          "Incorrect assignment: to reassign, use `now`; to assign as `const`, put on its own line."
+        )
+
+    SafeAwaitExpression(path): void ->
+      const errId = path.scope.generateUidIdentifier("err");
+      awaitIife = iife(
+        t.tryStatement(
+          t.blockStatement([
+            t.returnStatement(t.awaitExpression(path.node.argument))
+          ]),
+          t.catchClause(errId, t.blockStatement([
+            t.returnStatement(errId)
+          ]))
+        )~allAtLoc(getLoc(path.node))
+        true
+      )
+
+      // TODO: returntype annotation
+      awaitExpr = t.awaitExpression(awaitIife)~allAtLoc(getLoc(path.node))
+      path.replaceWith(awaitExpr)
+
+    AwaitExpression(path): void ->
+      if (path.get("argument")~isa("ArrayExpression")):
+        promiseDotAllCall = t.callExpression(
+          t.memberExpression(t.identifier("Promise"), t.identifier("all")),
+          [path.node.argument],
+        );
+        path.get("argument").replaceWith(promiseDotAllCall);
+
+    VariableDeclaration(path): void ->
+      // Error on auto-const when shadowing variable
+      if (path.node.kind === "const") {
+        if (path.node.extra && path.node.extra.implicit === true) {
+          const id = getShadowingIdentifiers(path)[0];
+          if (id) {
+            throw path.buildCodeFrameError(
+              `\`${id.name}\` is shadowed from a higher scope. ` +
+              `If you want to reassign the variable, use \`now ${id.name} = ...\`. ` +
+              "If you want to declare a new shadowed \`const\` variable, " +
+              `you must use \`const ${id.name} = ...\` explicitly.`
+            );
+          }
+        }
+      }
+
+    // collect functions to be imported for the stdlib
+    ReferencedIdentifier(path): void ->
+      if not checkFalsePositiveReference(path):
+        compilerState.stdlib~markIdentifier(path)
+
+    ExistentialExpression(path): void ->
+      transformExistentialExpression(path)
+
+    MatchExpression(path): void ->
+      matching.transformMatchExpression(path, opts.__linter)
+
+    MatchStatement(path): void ->
+      matching.transformMatchStatement(path, opts.__linter)
+
+    CatchExpression(path): void ->
+      transformCatchExpression(path, opts.__linter)
+
+    ForOfStatement(path): void ->
+      // Auto-const
+      { node } = path; { left } = node
+      if left.type != "VariableDeclaration" and (not left.isNowAssign):
+        path.get("left").replaceWith(
+          t.variableDeclaration(
+            "const"
+            [t.variableDeclarator(left)~atNode(left)]
+          )~atNode(left)
+        )
+  })

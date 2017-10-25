@@ -1,4 +1,4 @@
 // comment
 f() -> x
-'use @oigroup/lightscript with safeCall'
-f?()
+'use @oigroup/lightscript with enhancedComprehension'
+[case a: b]

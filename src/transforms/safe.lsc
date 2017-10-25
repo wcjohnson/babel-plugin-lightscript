@@ -1,0 +1,137 @@
+import t, { isa } from '../types'
+import { hoistRef, isSimple } from '../helpers/variables'
+
+import {
+  getLoc, placeAtNode as atNode,
+  placeTreeAtLocWhenUnplaced as allAtLoc
+} from 'ast-loc-utils'
+
+// Optional-replacement algorithm based on babel-plugin-transform-optional-chaining
+// See https://github.com/babel/babel/blob/master/packages/babel-plugin-transform-optional-chaining/src/index.js
+
+findReplacementPath(path) ->
+  path.find(path ->
+    { key, parentPath } = path
+    if key == "left" and parentPath~isa("AssignmentExpression"): false
+    elif key == "object" and parentPath~isa("MemberExpression"): false
+    elif key == "callee" and (parentPath~isa("CallExpression") or parentPath~isa("NewExpression")): false
+    elif key == 0 and path.listKey == "arguments" and path.parent.tilde: false // lift past tilde calls
+    elif key == "argument" and parentPath~isa("UpdateExpression"): false
+    elif key == "argument" and (parentPath~isa("UnaryExpression") and parentPath.node.operator == "delete"): false
+    else: true
+  )
+
+replaceOptionals(path, replacementPath): void ->
+  { scope } = path
+  optionals = []
+  nil = scope.buildUndefinedNode()
+
+  // Collect all optional nodes within the local cluster of nodes
+  let objectPath = path
+  while objectPath~isa("MemberExpression") or objectPath~isa("CallExpression") or objectPath~isa("NewExpression"):
+    { node } = objectPath;
+    if node.optional: optionals.push(node)
+
+    if objectPath~isa("MemberExpression"):
+      now objectPath = objectPath.get("object")
+    else:
+      now objectPath = objectPath.get("callee")
+
+  // Traverse optionals from innermost to outermost
+  for let i = optionals.length - 1; i >= 0; i--:
+    node = optionals[i]
+    node.optional = false
+
+    isCall = node~isa("CallExpression");
+    replaceKey = if isCall or node~isa("NewExpression"): "callee" else: "object"
+    chain = node[replaceKey]
+
+    // Memoize the expression we're chaining from.
+    // XXX: non-idiomatic usage of let/now here is due to https://github.com/lightscript/lightscript/issues/47
+    // XXX: This was fixed sometime in 2.0 branch but self hosting compiler has not caught up yet.
+    // XXX: remember to cleanup when we bring self-hosting forward
+    let check
+    if isCall && chain~isa("MemberExpression"):
+      { ref: objectRef, assign: objectAssign } = hoistRef(path, chain.object, "obj")
+      { ref: propertyRef, assign: propertyAssign } = if chain.computed:
+        hoistRef(path, chain.property, "prop")
+      else:
+        { ref: chain.property, assign: chain.property}
+      chain.object = objectRef
+      chain.property = propertyRef
+      now check = t.memberExpression(objectAssign, propertyAssign, chain.computed)
+      // NOTE: The babel transform sometimes generates `Function#call` here which may be more
+      // semantically correct.
+    else:
+      ref = if not chain~isSimple(): scope.maybeGenerateMemoised(chain)
+      now check = if ref:
+        node[replaceKey] = ref
+        t.assignmentExpression("=", ref, chain)
+      else:
+        chain
+
+    replacementPath.replaceWith(
+      t.conditionalExpression(
+        if isCall:
+          t.binaryExpression("!==",
+            t.unaryExpression("typeof", check),
+            t.stringLiteral("function")
+          )
+        else:
+          t.binaryExpression("==", check, t.nullLiteral())
+        nil
+        replacementPath.node
+      )
+    )
+
+    now replacementPath = replacementPath.get("alternate")
+
+export maybeTransformSafe(path): void ->
+  if path.node.optional:
+    replaceOptionals(path, path~findReplacementPath())
+
+export transformExistentialExpression(path) ->
+  path.replaceWith(
+    t.binaryExpression(
+      "!=",
+      path.node.argument,
+      t.nullLiteral()~atNode(path.node)
+    )~atNode(path.node)
+  )
+
+export transformSafeSpreadElement(path) ->
+  { node: { argument } } = path
+  // Optimization: if the thing being spread is already an array, elide
+  if argument~isa("ArrayExpression"):
+    path.node._safe = true
+    return
+
+  // Optimization: if spreading an `IfExpr` without an alternate, just add
+  // `[]` as an alternate if consequent is an array
+  if (
+    argument~isa("IfExpression") and
+    argument.consequent~isa("ArrayExpression") and
+    (not argument.alternate)
+  ):
+    argument.alternate = t.arrayExpression()
+    path.get("argument").replaceWith(argument)
+    path.node._safe = true
+    return
+
+  { ref, assign, isComplex } = hoistRef(path, path.node.argument, "ref")
+
+  cond = t.conditionalExpression(
+    t.binaryExpression("===", ref, t.unaryExpression("void", t.numericLiteral(0)))
+    t.arrayExpression(),
+    ref
+  )
+
+  nextNode = t.spreadElement(
+    if isComplex:
+      t.sequenceExpression([assign, cond])
+    else:
+      cond
+  )~allAtLoc(path.node~getLoc!)
+
+  nextNode._safe = true
+  path.replaceWith! nextNode

@@ -1,0 +1,97 @@
+import patch from '../util/babelTypesPatch'
+import { registerLightscriptNodeTypes } from '../lscNodeTypes'
+import { initializeStdlib } from './stdlib'
+import { initializeRuntime } from './runtime'
+import { insertImports } from './imports'
+import { resetHelpers } from './helpers'
+import { getInlinedOperatorsEnabled } from '../transforms/inlinedOperators' // XXX
+
+import { getLoc, span } from 'ast-loc-utils'
+
+// Singleton object, unique per Program traversal, holding relevant state.
+let compilerState = {
+  // DI Babel instance. Avoid unless necessary; prefer types.lsc
+  babel: null
+
+  // Root program path
+  programPath: null
+
+  // Location mixin representing the first character in the file.
+  firstLoc: null
+
+  // Babel Plugin options
+  opts: null
+
+  // Babel file state entry
+  file: null
+
+  //// Preambles
+  // stdlib state
+  stdlib: null
+  // helpers state
+  helpers: null
+  // lightscript-runtime state
+  runtime: null
+
+  inlinedOperatorsEnabled: null
+  isLightScript: null
+  isLSX: null
+}
+
+export getCompilerState() -> compilerState
+
+export getBabel() -> compilerState.babel
+
+export getOptions() -> compilerState.opts
+
+// This will get the position of the first non-comment token. We place imports
+// and requires here because ESLint requires the corresponding string literals
+// to be on top of a valid token, or it chokes.
+findFirstTokenLoc(tokens) ->
+  if (not tokens) or (tokens.length == 0): return null
+
+  for elem t in tokens:
+    if t and (!t.type?.indexOf or t.type.indexOf("Comment") < 0): return getLoc(t)
+
+  return null
+
+export createCompilerState(babel) ->
+  // TODO: Eliminate global here. Compiler should pass state down using
+  // `~` where necessary.
+  now compilerState = { babel }
+  compilerState
+
+export preCompileInitialization(compiler, programPath) ->
+  { babel, opts, file } = compiler
+  compiler.programPath = programPath
+
+  patch(babel.types)
+  registerLightscriptNodeTypes(babel.types)
+
+  // Get zero-location
+  tokens = file?.ast?.tokens
+  body = programPath?.node?.body
+  loc = findFirstTokenLoc(tokens)
+  if loc:
+    compiler.firstLoc = loc
+  elif body and body.length > 0:
+    compiler.firstLoc = getLoc(body[0])~span(1)
+  else:
+    compiler.firstLoc = {
+      start: 0
+      end: 1
+      loc: { start: { line: 1, column: 0 }, end: { line: 1, column: 1 } }
+    }
+
+  // XXX: fix this
+  compilerState.stdlib = initializeStdlib(opts)
+  compilerState.inlinedOperatorsEnabled = getInlinedOperatorsEnabled(opts)
+  compilerState.runtime = initializeRuntime(opts)
+  resetHelpers(programPath)
+
+  compilerState
+
+export postprocess(state) ->
+  { stdlib, programPath, runtime } = state
+  stdlib.imports~insertImports(programPath, stdlib.useRequire or state.opts.useRequire)
+  runtime.imports~insertImports(programPath, state.opts.useRequire)

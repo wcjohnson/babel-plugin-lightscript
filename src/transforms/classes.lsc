@@ -1,0 +1,159 @@
+import t, { is } from '../types'
+
+// prevent generated spreadexpr from being further transformed
+safe(node) ->
+  node._safe = true
+  node
+
+// Check if the given path or any of its descendants contains a `super()`
+// call expression.
+export containsSuperCall(path) ->
+  let hasSuper = false
+  path.traverse({
+    noScope: true
+
+    Class(path): void -> path.skip()
+
+    // XXX: this may not be necessary due to super calls in free functions
+    // being syntax errors caught by js engine.
+    Function(path): void -> path.skip()
+
+    Super(superPath): void ->
+      if is("CallExpression", superPath.parentPath):
+        now hasSuper = true
+        superPath.stop()
+  })
+  hasSuper
+
+// Ensure that a class body has a constructor, optionally ensuring that
+// the constructor itself has a `super(...args)` call.
+//
+// TODO: consider refactoring here
+// - "hasConstructor" function to look for the constructor with traverse()
+// - "addEmptyConstructor" to make the empty constructor
+// - "addSuperCallToConstructor" to make the supercall.
+export ensureConstructor(classPath, constructorBodyPath, withSuper = true) ->
+  if not constructorBodyPath:
+    emptyConstructor = t.classMethod(
+      "constructor"
+      t.identifier("constructor")
+      []
+      t.blockStatement([])
+    )
+    // XXX: this marks this constructor for super insertion.
+    // why is it doing it like this? seems hackish, rethink
+    emptyConstructor.skinny = true
+    classPath.get("body").unshiftContainer("body", emptyConstructor)
+    now constructorBodyPath = classPath.get("body.body.0.body")
+
+  if(
+    withSuper and
+    classPath.node.superClass and
+    constructorBodyPath.parentPath.node.skinny and
+    not containsSuperCall(constructorBodyPath)
+  ):
+    superCall = if constructorBodyPath.parentPath.node.params.length:
+      // constructor(<args>) -> super(<args>)
+      t.expressionStatement(
+        t.callExpression(
+          t.super()
+          constructorBodyPath.parentPath.node.params
+        )
+      )
+    else:
+      // constructor(...args) -> super(...args)
+      let argsUid = classPath.scope.generateUidIdentifier("args");
+      constructorBodyPath.parentPath.node.params = [t.restElement(argsUid)];
+      t.expressionStatement(
+        t.callExpression(t.super(), [
+          t.spreadElement(argsUid)~safe!
+        ])
+      )
+
+    constructorBodyPath.unshiftContainer("body", superCall)
+
+  constructorBodyPath
+
+// Insert code into class constructor which will autobind a list of class
+// methods at construction time.
+export bindMethodsInConstructor(classPath, constructorPath, methodIds) ->
+  // `this.method = this.method.bind(this);`
+  assignments = [...for elem methodId in methodIds:
+    t.assertOneOf(methodId, ["Identifier", "Expression"])
+    isComputed = !is("Identifier", methodId)
+
+    thisDotMethod = t.memberExpression(t.thisExpression(), methodId, isComputed)
+
+    t.expressionStatement(
+      t.assignmentExpression("="
+        thisDotMethod
+        t.callExpression(
+          t.memberExpression(thisDotMethod, t.identifier("bind"))
+          [t.thisExpression()]
+        )
+      )
+    )
+  ]
+
+  // directly after each instance of super(), insert the thingies there.
+  if (classPath.node.superClass) {
+    constructorPath.traverse({
+      Super(superPath) {
+        if (!superPath.parentPath.isCallExpression()) return;
+        let superStatementPath = superPath.getStatementParent();
+
+        // things get super weird when you return super();
+        // TODO: consider trying to handle it
+        let enclosingReturn = superPath
+          .findParent((p) => p.isReturnStatement() && p.getFunctionParent() === constructorPath.parentPath);
+        if (enclosingReturn) throw new Error("Can't use => with `return super()`; try removing `return`.");
+
+        superStatementPath.insertAfter(assignments);
+        return
+      }
+    });
+  } else {
+    constructorPath.unshiftContainer("body", assignments);
+  }
+
+export bindMethods(path, methodIds) ->
+  let assignId, inExpression = false;
+  if (path.isClassDeclaration()) {
+    now assignId = path.node.id;
+  } else if (
+    path.parentPath.isAssignmentExpression() &&
+    path.parentPath.parentPath.isExpressionStatement()
+  ) {
+    now assignId = path.parentPath.node.left;
+  } else if (path.parentPath.isVariableDeclarator()) {
+    now assignId = path.parentPath.node.id;
+  } else {
+    let id = path.isClass() ? "class" : "obj";
+    now assignId = path.getStatementParent().scope.generateDeclaredUidIdentifier(id);
+    now inExpression = true;
+  }
+  t.assertOneOf(assignId, ["Identifier", "MemberExpression"]);
+
+  let assignments = methodIds.map((methodId) => {
+    // could be computed, eg `['blah']() => {}`
+    t.assertOneOf(methodId, ["Identifier", "Expression"]);
+    let isComputed = !t.isIdentifier(methodId);
+    let objDotMethod = t.memberExpression(assignId, methodId, isComputed);
+    let bind = t.callExpression(
+      t.memberExpression(objDotMethod, t.identifier("bind")),
+      [assignId]
+    );
+    return t.assignmentExpression("=", objDotMethod, bind);
+  });
+
+  if (inExpression) {
+    path.replaceWith(t.sequenceExpression([
+      t.assignmentExpression("=", assignId, path.node),
+      ...assignments,
+      assignId
+    ]));
+  } else {
+    path.getStatementParent().insertAfter(
+      assignments.map((a) => t.expressionStatement(a))
+    );
+  }

@@ -1,3 +1,3 @@
 (function () {
-  return this == null ? null : this.a;
+  return this == null ? void 0 : this.a;
 });

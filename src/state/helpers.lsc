@@ -1,0 +1,104 @@
+import { getBabel } from './compilerState'
+import { isa } from '../types'
+
+let helpers = {}
+let helperPath = null
+
+export resetHelpers(path) ->
+  now helperPath = path
+  now helpers = {}
+
+insertAfterImports(path, node): void ->
+  for elem p in path.get("body"):
+    if not p~isa("ImportDeclaration"):
+      p.insertBefore(node)
+      // XXX: enabling the below logging command while running the
+      // helpers/scope fixture with the following `hasProps` helper:
+      //
+      // function(obj) {
+      //   var i = arguments.length;
+      //   if (obj == null) return false;
+      //   if (typeof obj !== "object" && typeof obj !== "function") return false;
+      //   while (--i > 0) if (!(arguments[i] in obj)) return false;
+      //   return true;
+      // }
+      //
+      // ...reveals a severe scope leak bug in Babel wherein the `var i`
+      // declaration here gets coalesced with the `const i` declaration
+      // from the enclosing scope. This causes a false constant violation to
+      // be recorded here, and the es2015-check-constants plugin will
+      // then crash on compiled code.
+      //
+      // I am working around this bug by introducing a new block scope using
+      // `for` in the helper, but it should definitely be reported upstream
+      // to babel.
+
+      // p.getPrevSibling().scope.dump()
+      break
+
+export getHelper(key, makeHelper) ->
+  helper = helpers[key]
+  if helper: return helper
+
+  let functionExpr = makeHelper()
+  // babel-template fixup
+  if functionExpr.type === "ExpressionStatement": now functionExpr = functionExpr.expression
+
+  // c/p https://github.com/babel/babel/blob/7.0/packages/babel-core/src/transformation/file/index.js#L206
+  ref = helperPath.scope.generateUidIdentifier(key)
+
+  functionExpr.body._compact = true
+  functionExpr._generated = true
+  functionExpr.id = ref
+  functionExpr.type = "FunctionDeclaration"
+
+  insertAfterImports(helperPath, functionExpr)
+
+  helpers[key] = ref
+
+predefinedHelpers = {
+  isObject(b) ->
+    b.template(`
+(function(obj) {
+  return obj != null && (typeof obj === "object" || typeof obj === "function")
+})
+    `)()
+
+  hasLength(b) ->
+    b.template(`
+(function(arr, minLength, maxLength) {
+  return(
+    arr != null &&
+    typeof arr !== "function" &&
+    (maxLength === undefined ?
+      (minLength ? arr.length >= minLength : arr.length >= 0) :
+      (arr.length >= minLength && arr.length <= maxLength)
+    )
+  )
+})
+    `)()
+
+  hasProps(b) ->
+    b.template(`
+(function(obj) {
+  if (obj == null) return false;
+  if (typeof obj !== "object" && typeof obj !== "function") return false;
+  for (var i = arguments.length - 1; i > 0; i--)
+    if (!(arguments[i] in obj)) return false;
+  return true;
+})
+    `)()
+
+  matches(b) ->
+    b.template(`
+(function(discriminant, atom) {
+  return discriminant === atom;
+})
+    `)()
+
+}
+
+export helper(name) ->
+  makeHelper = predefinedHelpers[name]
+  if not makeHelper: throw new Error(`no such helper ${name}`)
+  getHelper(name, -> makeHelper(getBabel()))

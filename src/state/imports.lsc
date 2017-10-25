@@ -1,0 +1,38 @@
+import t from '../types'
+import { getCompilerState } from './compilerState'
+
+import { placeTreeAtLocWhenUnplaced as allAtLoc } from 'ast-loc-utils'
+
+export createImports() ->
+  {}
+
+// import id from 'importPath'
+export addImport(imports, importPath, name) ->
+  if typeof importPath !== "string": return
+  if not imports[importPath]: imports[importPath] = []
+  if imports[importPath].indexOf(name) < 0: imports[importPath].push(name)
+
+export insertImports(imports, path, useRequire = false) ->
+  loc = getCompilerState().firstLoc
+
+  stmts = [...for key importPath, val importNames in imports:
+    for elem name in importNames:
+      if useRequire:
+        // const [name] = require("[path]")
+        t.variableDeclaration("const", [
+          t.variableDeclarator(
+            t.identifier(name)
+            t.callExpression(t.identifier("require"), [
+              t.stringLiteral(importPath)
+            ])
+          )
+        ])~allAtLoc(loc)
+      else:
+        // import [name] from "[path]"
+        t.importDeclaration(
+          [t.importDefaultSpecifier(t.identifier(name))]
+          t.stringLiteral(importPath)
+        )~allAtLoc(loc)
+  ]
+
+  if stmts.length > 0: path.unshiftContainer("body", stmts)

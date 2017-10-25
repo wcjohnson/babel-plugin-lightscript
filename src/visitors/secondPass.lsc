@@ -1,0 +1,5 @@
+import { transformAllPlaceholders } from '../transforms/placeholders'
+
+export default secondPass(compiler, path): void ->
+  if compiler.opts.placeholderArgs:
+    transformAllPlaceholders(path)

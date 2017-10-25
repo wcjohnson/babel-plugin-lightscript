@@ -1,4 +1,4 @@
 x = if true:
   if false: 1
 
-assert(x === null)
+assert(x === undefined)
