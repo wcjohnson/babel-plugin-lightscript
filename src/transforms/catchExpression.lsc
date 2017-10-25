@@ -9,12 +9,36 @@ import {
 
 import { getMatchInfo, transformMatchCases } from './match'
 
+transformCatchExpressionStatement(path, catchExprPath, isLinter): void ->
+  { node } = catchExprPath
+
+  errRef = node.binding
+  catchBody = if node.cases:
+    getMatchInfo(catchExprPath, errRef, isLinter)~transformMatchCases(catchExprPath.get("cases"))
+  else:
+    node.body
+
+  path.replaceWith! t.tryStatement(
+    // try { expr }
+    t.blockStatement([
+      t.expressionStatement(node.expression)~atNode(node.expression)
+    ])~atNode(node.expression)
+    // catch (err) { ... }
+    t.catchClause(
+      errRef
+      t.blockStatement([catchBody])
+    )
+  )
+
 transformVarDeclCatchExpression(path, catchExprPath, isLinter): void ->
   { node } = catchExprPath
 
   resRef = path.scope.generateUidIdentifier("val")
-  errRef = path.scope.generateUidIdentifier("err")~atLoc(getLoc(node)~span(1))
-  catchBody = getMatchInfo(catchExprPath, errRef, isLinter)~transformMatchCases(catchExprPath.get("cases"))
+  errRef = node.binding
+  catchBody = if node.cases:
+    getMatchInfo(catchExprPath, errRef, isLinter)~transformMatchCases(catchExprPath.get("cases"))
+  else:
+    node.body
 
   path.insertBefore! t.variableDeclaration("let", [t.variableDeclarator(resRef)])
   path.insertBefore! t.tryStatement(
@@ -40,8 +64,11 @@ transformVarDeclCatchExpression(path, catchExprPath, isLinter): void ->
 transformPessimizedCatchExpression(path, isLinter): void ->
   { node } = path
 
-  errRef = path.scope.generateUidIdentifier("err")~atLoc(getLoc(node)~span(1))
-  catchBody = getMatchInfo(path, errRef, isLinter)~transformMatchCases(path.get("cases"))
+  errRef = node.binding
+  catchBody = if node.cases:
+    getMatchInfo(path, errRef, isLinter)~transformMatchCases(path.get("cases"))
+  else:
+    node.body
 
   iife = t.callExpression(
     t.arrowFunctionExpression(
@@ -69,9 +96,14 @@ isVarDeclCatchExpr(path) ->
   and path.parentPath.parent.declarations.length == 1
   and path.parentPath.parentPath.listKey == "body"
 
+isCatchExprStatement(path) ->
+  path.parent~isa("ExpressionStatement")
+
 export transformCatchExpression(path, isLinter): void ->
   if path~isVarDeclCatchExpr!:
     transformVarDeclCatchExpression(path.parentPath.parentPath, path, isLinter)
+  elif path~isCatchExprStatement!:
+    transformCatchExpressionStatement(path.parentPath, path, isLinter)
   else:
     transformPessimizedCatchExpression(path, isLinter)
 
