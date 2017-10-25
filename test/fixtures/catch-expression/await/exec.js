@@ -4,10 +4,10 @@ throwInOne() ->
 
 f() -/>
   <- throwInOne()
-    catch err: err
+    catch err: "there was a problem"
 
 g() -/>
   x <- f()
-  assert(x instanceof Error)
+  assert(x === "there was a problem")
 
 g()
