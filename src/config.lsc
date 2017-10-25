@@ -19,6 +19,11 @@ export getMetadata() -> {
       defaultValue: "default"
       stage: "1"
     }
+    catchExpression: {
+      description: "Catch and transform errors while evaluating an expression. (HIGHLY EXPERIMENTAL. DO NOT USE IN PRODUCTION.)"
+      valueType: "boolean"
+      stage: "-50"
+    }
     bangCall: {
       description: "Call functions with paren-free syntax using `!`"
       valueType: "boolean"
@@ -106,6 +111,7 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
   if pluginOpts?.placeholderArgs: plugins.push("syntacticPlaceholder")
   if pluginOpts?.placeholder:
     parserOpts.placeholder = pluginOpts.placeholder
+  if pluginOpts.catchExpression: plugins.push("catchExpression")
 
   // TODO: watch upstream on pattern matching; default to their syntax when complete
   // patternMatchingVersion = pluginOpts?.patternMatching or "v4"

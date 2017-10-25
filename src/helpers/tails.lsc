@@ -29,6 +29,8 @@ export getTails(path, allowLoops) ->
       add(path.get("block"))
       add(path.get("handler"))
       add(path.get("finalizer"))
+    | ~isa("CatchClause"):
+      add(path.get("body"))
     | ~isa("MatchStatement"):
       for idx i in node.cases:
         add(path.get(`cases.${i}.consequent`))
