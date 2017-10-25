@@ -123,7 +123,7 @@ transformBoundConsequent({discriminantRef, isLinter}, binding, consequent, inner
 
 transformMatchConsequent(mtch, casePath) ->
   { binding, consequent, innerGuard } = casePath.node
-  if binding and binding~isNonEmptyPattern():
+  if binding and (binding~isNonEmptyPattern() or binding~isa("Identifier")):
     mtch~transformBoundConsequent(binding, consequent, innerGuard)
   else:
     consequent~toBlockStatement()
