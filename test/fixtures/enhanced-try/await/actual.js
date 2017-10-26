@@ -1,3 +1,3 @@
 f() -/>
-  <- fetchRemote()
+  try <- fetchRemote()
     catch err: false

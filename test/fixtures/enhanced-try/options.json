@@ -2,7 +2,7 @@
   "plugins": [
     ["lightscript", {
       "isLightScript": true,
-      "catchExpression": true
+      "enhancedTry": true
     }]
   ]
 }

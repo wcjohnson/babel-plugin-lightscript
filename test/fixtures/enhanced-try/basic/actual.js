@@ -1,11 +1,11 @@
-a = b()
+a = try b()
   catch err: panic()
 
-c = d() catch err:
+c = try d() catch err:
   | SpecificError: specificValue
   | Error: generalValue
 
-e = f()
+e = try f()
   catch err:
     | SpecificError: specificValue
     | Error: generalValue

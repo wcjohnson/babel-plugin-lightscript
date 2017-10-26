@@ -19,8 +19,8 @@ export getMetadata() -> {
       defaultValue: "default"
       stage: "1"
     }
-    catchExpression: {
-      description: "Catch and transform errors while evaluating an expression. (HIGHLY EXPERIMENTAL. DO NOT USE IN PRODUCTION.)"
+    enhancedTry: {
+      description: "`try` expressions and pattern matching for `catch`. (HIGHLY EXPERIMENTAL. DO NOT USE IN PRODUCTION.)"
       valueType: "boolean"
       stage: "-50"
     }
@@ -111,7 +111,7 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
   if pluginOpts?.placeholderArgs: plugins.push("syntacticPlaceholder")
   if pluginOpts?.placeholder:
     parserOpts.placeholder = pluginOpts.placeholder
-  if pluginOpts.catchExpression: plugins.push("catchExpression")
+  if pluginOpts.enhancedTry: plugins.push("enhancedTry")
 
   // TODO: watch upstream on pattern matching; default to their syntax when complete
   // patternMatchingVersion = pluginOpts?.patternMatching or "v4"
