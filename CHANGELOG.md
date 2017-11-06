@@ -1,3 +1,89 @@
+# 3.1
+
+## Enhanced error handling
+
+> Enhanced `try` is a new feature and as such is behind a compiler flag. Pass `{ enhancedTry: true}` as a configuration option to enable these changes. Enhanced try will be live by default in the next major semver increment, 4.0.
+
+### Changes:
+
+#### 1. Parsing of `try` is more tolerant and more closely matches parsing of `if`.
+
+`try`, `catch`, and `finally` can be put on the same line. Oneline whiteblocks
+are acceptable.
+
+```js
+try: f() catch err: "panic!" finally: calmDown()
+```
+
+#### 2. `try` can be used as an expression
+
+`try` can now be used wherever an expression is valid. In its expression form, `try` evaluates to the last-reached value in the whole `try` construct.
+
+If the `try` block succeeds, the expression will evaluate to the last-reached value of the `try` block. If an error is thrown, the expression will evaluate to the last-reached value of the `catch` block.
+
+```js
+x = try:
+  successfulFunction()
+  3
+catch err:
+  err
+// x  === 3
+
+y = try:
+  throw new Error()
+catch err:
+  5
+// y === 5
+```
+
+`finally` is illegal when `try` is used as an expression.
+
+#### 3. Error coalescence with `try`
+
+Using `try` in front of an expression (no colon) evaluates that expression with error coalescence: the inner expression is evaluated and its value is returned unless an error is thrown, in which case the outer expression evaluates to the thrown error.
+
+```js
+x = try f()
+
+if x~isError!:
+  print! "operation failed"
+else:
+  print! "value was", x
+```
+
+This can be combined with `match` for idiomatic error handling:
+```js
+x = match try f():
+  | RetriableError: retry(15)
+  | Error as err: throw err
+  | else as result: result
+```
+
+When using `try` to coalesce errors, you cannot use `catch` -- you must handle any potential error values in band with the expression.
+
+### Rationale:
+
+Languages like Rust and Go encourage good programming practice through strong error checking that forces error cases to be handled explicitly. The objective here is to create a similar error-handling idiom in JS-land.
+
+Converting errors into values and putting them in-band with the expressions being evaluated (hopefully aided by a static type checker) encourages handling each possible error condition explicitly and in-band.
+
+## `as` binding in `match` test can rebind the discriminant
+
+### Change:
+
+Prior to 3.1, the following would throw an error, expecting `y` to be a pattern:
+```js
+match x:
+  | Test as y: y
+```
+It is now legal to use an identifier, in which case the identifier will be assigned the value of the discriminant.
+
+NOTE: This only applies to non-assertive matching with `as`. Since it wouldn't make sense in an assertive pattern match, it can't be used with `with`.
+
+### Rationale:
+
+This is a non-breaking syntax change that enables some nice syntax like the "`try`-and-match" above.
+
 # 3.0
 
 >This is a major release with breaking changes. This release is no longer strictly backward compatible with `lightscript@0.5.9`. Where compatibility has been broken, we believe we are correctly anticipating the future development of JavaScript and LightScript.
@@ -255,7 +341,7 @@ unknown: for-of requires a variable qualifier: `now` to reassign an existing var
 > 1 | for x of xs: x
     |
 // @oigroup/lightscript 3.x
-for (x of xs) { x }
+for (const x of xs) { x }
 ```
 
 ### Rationale

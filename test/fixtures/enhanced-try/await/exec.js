@@ -3,8 +3,8 @@ throwInOne() ->
     setTimeout(-> reject(new Error()), 1000)
 
 f() -/>
-  try <- throwInOne()
-    catch err: "there was a problem"
+  try: <- throwInOne()
+  catch err: "there was a problem"
 
 g() -/>
   x <- f()

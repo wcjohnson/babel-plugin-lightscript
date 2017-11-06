@@ -1,2 +1,2 @@
 wrap() ->
-  f(try g() catch err: return h)
+  f(try: g() catch err: return h)

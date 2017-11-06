@@ -8,8 +8,6 @@ import {
   placeTreeAtLocWhenUnplaced as allAtLoc
 } from 'ast-loc-utils'
 
-import { getMatchInfo, transformMatchCases } from './match'
-
 normalizeTryStatement(node, path): void ->
   // Turn stuff into blocks as needed
   if node.block: node.block = node.block~toBlockStatement()
@@ -106,11 +104,3 @@ export transformTryStatement(path): void ->
   { node } = path
   normalizeTryStatement(node, path)
   path.replaceWith(node)
-
-export transformCatchClause(path, isLinter): void ->
-  { node } = path
-
-  if node.cases:
-    nextBody = getMatchInfo(path, path.node.param, isLinter)~transformMatchCases(path.get("cases"))
-    node.body = nextBody~toBlockStatement()
-    path.replaceWith(node)

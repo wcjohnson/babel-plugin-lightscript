@@ -15,7 +15,7 @@ import { maybeTransformArrayWithSpreadLoops, maybeTransformObjectWithSpreadLoops
 import { transformExistentialExpression, transformSafeSpreadElement } from "../transforms/safe"
 import { maybeReplaceWithInlinedOperator } from "../transforms/inlinedOperators"
 import { transformForInArrayStatement, transformForInObjectStatement, lintForInArrayStatement, lintForInObjectStatement } from "../transforms/for"
-import { transformTryExpression, transformTryStatement, transformCatchClause } from "../transforms/try"
+import { transformTryExpression, transformTryStatement } from "../transforms/try"
 
 import { markIdentifier } from "../state/stdlib"
 
@@ -227,9 +227,6 @@ export default mainPass(compilerState, programPath): void ->
 
     TryStatement(path): void ->
       transformTryStatement(path, opts.__linter)
-
-    CatchClause(path): void ->
-      transformCatchClause(path, opts.__linter)
 
     ForOfStatement(path): void ->
       // Auto-const

@@ -1,1 +1,1 @@
-f(try g() catch err: err)
+f(try: g() catch err: err)
