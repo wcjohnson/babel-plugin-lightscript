@@ -287,36 +287,22 @@ export registerLightscriptNodeTypes(t): void ->
       },
     });
 
-  if not t.hasType("CatchExpression"):
-    definePluginType("CatchExpression", {
-      builder: ["expression", "cases"],
-      visitor: ["expression", "cases"],
+  if not t.hasType("TryExpression"):
+    definePluginType("TryExpression", {
+      builder: ["block", "handler", "finalizer"],
+      visitor: ["block", "handler", "finalizer"],
       aliases: ["Expression"],
       fields: {
-        expression: {
-          validate: assertNodeType("Expression")
+        block: {
+          validate: assertNodeType("Expression", "BlockStatement"),
         },
-        cases: {
-          validate: chain(assertValueType("array"), assertEach(assertNodeType("CatchCase")))
-        }
-      }
-    });
-
-  if not t.hasType("CatchCase"):
-    definePluginType("CatchCase", {
-      builder: ["atoms", "binding", "consequent"],
-      visitor: ["atoms", "binding", "consequent"],
-      fields: {
-        atoms: {
-          validate: chain(assertValueType("array"), assertEach(assertNodeType("Expression")))
-          optional: true
-        }
-        binding: {
-          validate: assertNodeType("Identifier", "ArrayPattern", "ObjectPattern")
-          optional: true
-        }
-        consequent: {
-          validate: assertNodeType("Expression", "Statement")
-        }
-      }
+        handler: {
+          optional: true,
+          validate: assertNodeType("CatchClause"),
+        },
+        finalizer: {
+          optional: true,
+          validate: assertNodeType("BlockStatement"),
+        },
+      },
     });

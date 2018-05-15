@@ -1,4 +1,4 @@
 const o = {
   async f(x) {
-    return x;
+    return await x;
   } };

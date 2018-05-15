@@ -1,4 +1,4 @@
 (async function () {
   await 1;
-  return 2;
+  return await 2;
 });

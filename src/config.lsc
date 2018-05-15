@@ -19,6 +19,11 @@ export getMetadata() -> {
       defaultValue: "default"
       stage: "1"
     }
+    enhancedTry: {
+      description: "`try` expressions and pattern matching for `catch`. (HIGHLY EXPERIMENTAL. DO NOT USE IN PRODUCTION.)"
+      valueType: "boolean"
+      stage: "-50"
+    }
     bangCall: {
       description: "Call functions with paren-free syntax using `!`"
       valueType: "boolean"
@@ -106,6 +111,7 @@ export getParserOpts(pluginOpts, initialParserOpts) ->
   if pluginOpts?.placeholderArgs: plugins.push("syntacticPlaceholder")
   if pluginOpts?.placeholder:
     parserOpts.placeholder = pluginOpts.placeholder
+  if pluginOpts.enhancedTry: plugins.push("enhancedTry")
 
   // TODO: watch upstream on pattern matching; default to their syntax when complete
   // patternMatchingVersion = pluginOpts?.patternMatching or "v4"

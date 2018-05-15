@@ -1,0 +1,106 @@
+import t, { isa } from '../types'
+import { transformTails } from '../helpers/tails'
+import { toBlockStatement } from '../helpers/blocks'
+
+import {
+  getLoc, placeAtLoc as atLoc, placeAtNode as atNode,
+  getSurroundingLoc, span, traverse,
+  placeTreeAtLocWhenUnplaced as allAtLoc
+} from 'ast-loc-utils'
+
+normalizeTryStatement(node, path): void ->
+  // Turn stuff into blocks as needed
+  if node.block: node.block = node.block~toBlockStatement()
+  if node.handler?.body: node.handler.body = node.handler.body~toBlockStatement()
+  if node.finalizer: node.finalizer = node.finalizer~toBlockStatement()
+  // Paramless handler gets a default param
+  if node.handler and (not node.handler.param):
+    node.handler.param = path.scope.generateUidIdentifier("err")
+  // Generate default handler
+  if (not node.handler) and (not node.finalizer):
+    errId = path.scope.generateUidIdentifier("err")
+    node.handler = t.catchClause(
+      errId,
+      t.blockStatement([t.expressionStatement(errId)])
+    )
+
+transformVarDeclTryExpression(path, tryExprPath): void ->
+  { node } = tryExprPath
+
+  // Starting from `const x = try ...`
+  // Add `let _val`
+  //    let _val
+  //    const x = try ...
+  resRef = path.scope.generateUidIdentifier("val")
+  path.insertBefore! t.variableDeclaration("let", [t.variableDeclarator(resRef)])
+
+  // replace `try ...` with `_val`
+  //    let _val
+  //    const x = _val
+  declaratorPath = path.get("declarations.0")
+  declaratorPath.node.init = resRef
+
+  // Turn the original node into a try statement and add it before the decl
+  //    let _val
+  //    try ...
+  //    const x = _val
+  node.type = "TryStatement"
+  normalizeTryStatement(node, tryExprPath)
+  path.insertBefore! node
+
+  // Re-tail the `try` statement so it assigns its final value to `_val`
+  tryPath = path.getPrevSibling()
+  transformTails(tryPath, false, false, (node) ->
+    t.assignmentExpression("=", resRef, node)~atNode(node)
+  )
+
+transformPessimizedTryExpression(path): void ->
+  { node } = path
+
+  // If there are any awaits beneath us, we need async.
+  let needsAsync = false
+  path.traverse({
+    noScope: true
+
+    Function(path): void -> path.skip()
+
+    AwaitExpression(awaitPath) ->
+      now needsAsync = true
+      awaitPath.stop()
+
+    YieldExpression(yieldPath) ->
+      throw yieldPath.buildCodeFrameError("`yield` is not allowed in `try` expressions.")
+
+    ReturnStatement(returnPath) ->
+      throw returnPath.buildCodeFrameError("`return` is not allowed in `try` expressions.");
+  })
+
+  node.type = "TryStatement"
+  normalizeTryStatement(node, path)
+
+  iife = t.callExpression(
+    t.arrowFunctionExpression(
+      []
+      t.blockStatement([node])
+      needsAsync
+    )
+    []
+  )
+
+  path.replaceWith(iife)
+
+isVarDeclTryExpr(path) ->
+  path.parent~isa("VariableDeclarator")
+  and path.parentPath.parent.declarations.length == 1
+  and path.parentPath.parentPath.listKey == "body"
+
+export transformTryExpression(path, isLinter): void ->
+  if path~isVarDeclTryExpr!:
+    transformVarDeclTryExpression(path.parentPath.parentPath, path, isLinter)
+  else:
+    transformPessimizedTryExpression(path, isLinter)
+
+export transformTryStatement(path): void ->
+  { node } = path
+  normalizeTryStatement(node, path)
+  path.replaceWith(node)
