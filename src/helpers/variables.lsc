@@ -2,6 +2,7 @@ import t, { isa } from '../types'
 
 import getLoc from "ast-loc-utils/lib/getLoc"
 import atLoc from 'ast-loc-utils/lib/placeAtLoc'
+import atNode from 'ast-loc-utils/lib/placeAtNode'
 import span from 'ast-loc-utils/lib/span'
 
 export isSimple(refTarget) ->
@@ -92,3 +93,17 @@ export checkFalsePositiveReference(refPath) ->
       false
   else:
     false
+
+// Prevent a spread from being transformed by the safe-spread transform
+export spreadIsAlreadySafe(spread) ->
+  spread._safe = true
+  spread
+
+// Convert function args from rest to spread
+export restToSpread(argList) ->
+  [...for elem arg in argList:
+    if arg~isa("RestElement"):
+      t.spreadElement(arg.argument)~atNode(arg)~spreadIsAlreadySafe!
+    else:
+      arg
+  ]

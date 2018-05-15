@@ -1,9 +1,5 @@
 import t, { is } from '../types'
-
-// prevent generated spreadexpr from being further transformed
-safe(node) ->
-  node._safe = true
-  node
+import { restToSpread, spreadIsAlreadySafe } from '../helpers/variables'
 
 // Check if the given path or any of its descendants contains a `super()`
 // call expression.
@@ -57,7 +53,7 @@ export ensureConstructor(classPath, constructorBodyPath, withSuper = true) ->
       t.expressionStatement(
         t.callExpression(
           t.super()
-          constructorBodyPath.parentPath.node.params
+          constructorBodyPath.parentPath.node.params~restToSpread!
         )
       )
     else:
@@ -66,7 +62,7 @@ export ensureConstructor(classPath, constructorBodyPath, withSuper = true) ->
       constructorBodyPath.parentPath.node.params = [t.restElement(argsUid)];
       t.expressionStatement(
         t.callExpression(t.super(), [
-          t.spreadElement(argsUid)~safe!
+          t.spreadElement(argsUid)~spreadIsAlreadySafe!
         ])
       )
 
