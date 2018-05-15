@@ -238,4 +238,15 @@ export default mainPass(compilerState, programPath): void ->
             [t.variableDeclarator(left)~atNode(left)]
           )~atNode(left)
         )
+
+    ForInStatement(path): void ->
+      // Auto-const
+      { node } = path; { left } = node
+      if left.type != "VariableDeclaration" and (not left.isNowAssign):
+        path.get("left").replaceWith(
+          t.variableDeclaration(
+            "const"
+            [t.variableDeclarator(left)~atNode(left)]
+          )~atNode(left)
+        )
   })
