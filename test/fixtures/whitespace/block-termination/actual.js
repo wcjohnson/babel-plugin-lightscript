@@ -16,3 +16,16 @@
 
 call! func() ->
   result, arg2
+
+do a while b
+
+f() ->
+  a
+  while b:
+    c
+
+g() ->
+  do a while b
+  c
+  while d:
+    e

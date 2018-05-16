@@ -15,3 +15,18 @@ import result from "lodash/result";
 call(function func() {
   return result;
 }, arg2);
+
+do a; while (b);
+
+function f() {
+  a;
+  while (b) {
+    c;
+  }
+}function g() {
+  do a; while (b);
+  c;
+  while (d) {
+    e;
+  }
+}
