@@ -5,3 +5,4 @@ lib
 npm-debug.log
 lerna-debug.log
 /test/fixtures-debug
+.DS_Store
